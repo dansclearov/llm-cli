@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "llm_cli"
+version = "0.1.0"
+description = "A convinient CLI interface for the top LLMs"
+authors = ["Dan Sclearov <dansclearov@gmail.com>"]
+readme = "README.md"
+packages = [{include = "llm_cli"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+openai = "^1.1.1"
+colored = "^2.2.3"
+anthropic = "^0.28.0"
+python-dotenv = "^1.0.1"
+gradio = "^4.44.0"
+
+[tool.poetry.scripts]
+llm-cli = "llm_cli.main:main"
+llm-cli-app = "llm_cli.app:main"
+
+
+[tool.poetry.group.dev.dependencies]
+deptry = "^0.20.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
