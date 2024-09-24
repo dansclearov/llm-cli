@@ -40,12 +40,12 @@ For global installation, you have two options:
    cd path/to/llm-cli
    
    # Install the local package
-   pipx install .
+   pipx install -e .
    ```
 
    If you make changes to your local copy and want to update the installed version:
    ```
-   pipx install --force .
+   pipx install --force -e .
    ```
 
 I recommend `pipx` for managing global CLI packages, allowing you to use the `llm-cli` command from anywhere in your system, as well as adding aliases for models you use frequently in your shell configuration.

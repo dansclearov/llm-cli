@@ -95,7 +95,7 @@ def main():
     args = parser.parse_args()
 
     print(
-        f"Interactive {args.model} chat session."
+        f"Interactive {args.model} chat session. "
         "Press Ctrl+C to exit. Use '>' to enter multi-line input."
     )
 
