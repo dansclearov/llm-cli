@@ -91,7 +91,7 @@ with gr.Blocks() as block:
     )
 
     reset_button = gr.Button("Reset")
-    reset_button.click(lambda: [], [], outputs=[chatbot, state])
+    reset_button.click(lambda: ([], []), outputs=[chatbot, state])
 
 
 def main():
