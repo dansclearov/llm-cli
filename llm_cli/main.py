@@ -37,7 +37,7 @@ def get_openai_response(messages, model="gpt-4o"):
 
 def get_anthropic_response(messages):
     with anthropic.messages.stream(
-        model="claude-3-5-sonnet-20240620",
+        model="claude-3-5-sonnet-latest",
         messages=messages[1:],
         system=messages[0]["content"],
         max_tokens=1024,
@@ -79,6 +79,12 @@ def main():
         description="Run an interactive LLM chat session."
     )
     parser.add_argument(
+        "-hl",
+        "--high-low",
+        action="store_true",
+        help="High temperature first, low temperature critique",
+    )
+    parser.add_argument(
         "prompt",
         nargs="?",
         default="general",
@@ -89,7 +95,8 @@ def main():
         "--model",
         choices=["gpt-4o", "gpt-4-turbo", "sonnet"],
         default="gpt-4o",
-        help="Specify which model to use (gpt-4o, gpt-4-turbo, claude opus)",
+        help="Specify which model to use "
+             "(gpt-4o, gpt-4-turbo, claude 3.5 sonnet)",
     )
 
     args = parser.parse_args()
