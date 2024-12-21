@@ -1,4 +1,6 @@
 import argparse
+import os
+import json
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -16,12 +18,65 @@ gpt_color = fg("blue") + attr("bold")
 system_color = fg("violet") + attr("bold")
 reset_color = attr("reset")
 
+# TODO: Move these to a config file
+CHAT_DIR = "chats"
+TEMP_FILE = os.path.join(CHAT_DIR, "temp_session.json")
 
 openai = OpenAI()
 anthropic = Anthropic()
 
 
-def get_openai_response(messages, model="gpt-4o"):
+def save_chat_history(messages, filename):
+    filepath = os.path.join(CHAT_DIR, filename)
+    with open(filepath, "w") as f:
+        json.dump(messages, f, indent=2)
+
+
+def load_chat_history(filename):
+    filepath = os.path.join(CHAT_DIR, filename)
+    with open(filepath, "r") as f:
+        return json.load(f)
+
+
+def save_temp_history(messages):
+    with open(TEMP_FILE, "w") as f:
+        json.dump(messages, f, indent=2)
+
+
+def append_chat_history(filename, messages):
+    filepath = os.path.join(CHAT_DIR, filename)
+    with open(filepath, "r") as f:
+        file_messages = json.load(f)
+
+    # Remove the system message from the loaded history
+    filtered_messages = [
+        msg for msg in file_messages if msg["role"] != "system"
+    ]
+    messages.extend(filtered_messages)
+
+    print_last_messages(messages)
+
+
+def print_last_messages(messages, num_pairs=3):
+    """
+    Prints the last `num_pairs` pairs of Human and AI messages.
+    """
+    total_messages = len(messages)
+    if total_messages <= 2 * num_pairs + 1:
+        last_messages = [msg for msg in messages if msg["role"] != "system"]
+    else:
+        print("...")
+
+        # Get the last `num_pairs` pairs of Human and AI messages
+        last_messages = messages[-2 * num_pairs:]
+
+    for msg in last_messages:
+        role_label = "Human" if msg["role"] == "user" else "AI"
+        role_color = user_color if msg["role"] == "user" else gpt_color
+        print(f"{role_color}{role_label}: {reset_color}{msg['content']}")
+
+
+def get_openai_response(messages, model="gpt-4o-2024-11-20"):
     completion = openai.chat.completions.create(
         model=model, messages=messages, stream=True
     )
@@ -79,12 +134,6 @@ def main():
         description="Run an interactive LLM chat session."
     )
     parser.add_argument(
-        "-hl",
-        "--high-low",
-        action="store_true",
-        help="High temperature first, low temperature critique",
-    )
-    parser.add_argument(
         "prompt",
         nargs="?",
         default="general",
@@ -98,6 +147,11 @@ def main():
         help="Specify which model to use "
              "(gpt-4o, gpt-4-turbo, claude 3.5 sonnet)",
     )
+    parser.add_argument(
+        "--load",
+        metavar="FILENAME",
+        help="Load a chat history file at startup",
+    )
 
     args = parser.parse_args()
 
@@ -109,14 +163,45 @@ def main():
     prompt_str = read_system_message_from_file(
         "prompt_" + args.prompt + ".txt"
     )
-    print(f"{system_color}System:{reset_color} {prompt_str}")
+    if args.load:
+        messages = load_chat_history(args.load)
 
-    messages = [{"role": "system", "content": prompt_str}]
+        # Show system message if it differs
+        loaded_system_message = next(
+            (msg["content"] for msg in messages if msg["role"] == "system"), ""
+        )
+        if loaded_system_message != prompt_str:
+            print(f"{system_color}System (loaded):{reset_color} {loaded_system_message}")
+        else:
+            print(f"{system_color}System:{reset_color} {prompt_str}")
+
+        # Print last three pairs of messages
+        print_last_messages(messages)
+    else:
+        # Start with a fresh session
+        messages = [{"role": "system", "content": prompt_str}]
+        print(f"{system_color}System:{reset_color} {prompt_str}")
 
     finished = True
     while True:
         try:
             user_input = get_user_input()
+
+            # Check for special commands
+            if user_input.startswith("%save"):
+                _, filename = user_input.split(maxsplit=1)
+                save_chat_history(messages, filename)
+                continue
+            elif user_input.startswith("%load"):
+                _, filename = user_input.split(maxsplit=1)
+                messages = load_chat_history(filename)
+                print_last_messages(messages)
+                continue
+            elif user_input.startswith("%append"):
+                _, filename = user_input.split(maxsplit=1)
+                append_chat_history(filename, messages)
+                continue
+
             messages.append({"role": "user", "content": user_input})
 
             finished = False
@@ -139,6 +224,7 @@ def main():
                 finished = True
                 print("", flush=True)
             else:
+                save_temp_history(messages)
                 break
         except Exception as e:
             print(f"Error: {e}")
