@@ -1,0 +1,168 @@
+import pytest
+from unittest.mock import patch, mock_open
+import json
+
+from llm_cli.main import Config, ChatHistory, LLMClient, InputHandler
+from llm_cli.constants import MODEL_MAPPINGS
+
+
+# Fixtures
+@pytest.fixture
+def config():
+    return Config(
+        chat_dir="/test/chats",
+        temp_file="test_session.json",
+        models=MODEL_MAPPINGS,
+        max_history_pairs=3,
+        retry_attempts=3,
+        min_retry_wait=1,
+        max_retry_wait=2
+    )
+
+
+@pytest.fixture
+def chat_history(config):
+    return ChatHistory(config)
+
+
+@pytest.fixture
+def llm_client(config):
+    return LLMClient(config)
+
+
+# Test Config
+def test_config_defaults():
+    config = Config()
+    assert isinstance(config.chat_dir, str)
+    assert isinstance(config.temp_file, str)
+    assert config.models == MODEL_MAPPINGS
+    assert config.max_history_pairs == 3
+    assert config.retry_attempts == 3
+    assert config.min_retry_wait == 4
+    assert config.max_retry_wait == 10
+
+
+# Test ChatHistory
+def test_chat_history_init(chat_history):
+    assert chat_history.messages == []
+
+
+def test_chat_history_save(chat_history, tmp_path):
+    # Setup
+    chat_history.config.chat_dir = str(tmp_path)
+    chat_history.messages = [
+        {"role": "system", "content": "test system"},
+        {"role": "user", "content": "test user"}
+    ]
+
+    # Execute
+    chat_history.save("test.json")
+
+    # Verify
+    saved_file = tmp_path / "test.json"
+    assert saved_file.exists()
+    with open(saved_file) as f:
+        saved_data = json.load(f)
+    assert saved_data == chat_history.messages
+
+
+def test_chat_history_load(chat_history):
+    test_messages = [
+        {"role": "system", "content": "test system"},
+        {"role": "user", "content": "test user"}
+    ]
+    mock_file = mock_open(read_data=json.dumps(test_messages))
+
+    with patch("builtins.open", mock_file):
+        chat_history.load("test.json")
+
+    assert chat_history.messages == test_messages
+
+
+def test_chat_history_load_file_not_found(chat_history):
+    with pytest.raises(FileNotFoundError):
+        chat_history.load("nonexistent.json")
+
+
+def test_chat_history_append_from_file(chat_history):
+    original_messages = [
+        {"role": "system", "content": "system1"},
+        {"role": "user", "content": "user1"}
+    ]
+    append_messages = [
+        {"role": "system", "content": "system2"},
+        {"role": "user", "content": "user2"},
+        {"role": "assistant", "content": "assistant2"}
+    ]
+    chat_history.messages = original_messages.copy()
+
+    mock_file = mock_open(read_data=json.dumps(append_messages))
+    with patch("builtins.open", mock_file):
+        chat_history.append_from_file("append.json")
+
+    # Check that system message was filtered out and other messages were appended
+    expected_messages = original_messages + [
+        msg for msg in append_messages if msg["role"] != "system"
+    ]
+    assert chat_history.messages == expected_messages
+
+
+# Test LLMClient
+@patch("openai.OpenAI")
+@patch("anthropic.Anthropic")
+def test_llm_client_init(mock_anthropic, mock_openai):
+    client = LLMClient(Config())
+    assert client.openai is not None
+    assert client.anthropic is not None
+
+
+# Test InputHandler
+def test_parse_command_valid():
+    handler = InputHandler()
+    command, args = handler.parse_command("%save test.json")
+    assert command == "save"
+    assert args == "test.json"
+
+
+def test_parse_command_invalid():
+    handler = InputHandler()
+    with pytest.raises(ValueError):
+        handler.parse_command("%invalid test")
+
+
+def test_parse_command_no_args():
+    handler = InputHandler()
+    command, args = handler.parse_command("%save")
+    assert command == "save"
+    assert args is None
+
+
+def test_parse_not_command():
+    handler = InputHandler()
+    command, args = handler.parse_command("regular input")
+    assert command is None
+    assert args is None
+
+
+# Integration-style tests
+@patch("builtins.input")
+@patch("builtins.print")
+def test_input_handler_single_line(mock_print, mock_input):
+    mock_input.return_value = "test input"
+    handler = InputHandler()
+    result = handler.get_user_input()
+    assert result == "test input"
+
+
+@patch("builtins.input")
+@patch("builtins.print")
+def test_input_handler_multi_line(mock_print, mock_input):
+    mock_input.side_effect = [
+        ">start",
+        "line 1",
+        "line 2",
+        ">>"
+    ]
+    handler = InputHandler()
+    result = handler.get_user_input()
+    assert result == "line 1\nline 2"
