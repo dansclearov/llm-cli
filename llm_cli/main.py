@@ -103,7 +103,38 @@ class LLMClient:
     def __init__(self, config: Config):
         self.config = config
         self.openai = OpenAI()
+        # Deepseek has the same API schema as OpenAI
+        self.deepseek = OpenAI(api_key=os.getenv("DEEPSEEK_API_KEY"),
+                               base_url="https://api.deepseek.com")
         self.anthropic = Anthropic()
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+    )
+    def get_deepseek_response(
+        self, messages: List[Dict[str, str]], model: str,
+    ) -> str:
+        """Get response from Deepseek API with retry logic."""
+        completion = self.deepseek.chat.completions.create(
+            model=model, messages=messages, stream=True
+        )
+
+        response_str = ""
+        is_reasoning_output = True
+        for chunk in completion:
+            if chunk.choices[0].delta.reasoning_content:
+                print(chunk.choices[0].delta.reasoning_content,
+                      end="", flush=True)
+            else:
+                message_content = chunk.choices[0].delta.content
+                if message_content:
+                    if is_reasoning_output:
+                        print("\n\n", flush=True)
+                        is_reasoning_output = False
+                    print(message_content, end="", flush=True)
+                    response_str += message_content
+        return response_str
 
     @retry(
         stop=stop_after_attempt(3),
@@ -196,7 +227,7 @@ def main():
     parser.add_argument(
         "-m",
         "--model",
-        choices=["gpt-4o", "gpt-4-turbo", "sonnet"],
+        choices=["gpt-4o", "gpt-4-turbo", "o3-mini", "sonnet", "r1"],
         default="gpt-4o",
         help="Specify which model to use",
     )
@@ -272,8 +303,13 @@ def main():
             finished = False
             print(f"{AI_COLOR}AI:{RESET_COLOR}", end=" ", flush=True)
 
-            if args.model in ["gpt-4o", "gpt-4-turbo"]:
+            if args.model in ["gpt-4o", "gpt-4-turbo", "o3-mini"]:
                 response = llm_client.get_openai_response(
+                    chat_history.messages,
+                    config.models[args.model]
+                )
+            elif args.model == "r1":
+                response = llm_client.get_deepseek_response(
                     chat_history.messages,
                     config.models[args.model]
                 )
