@@ -227,7 +227,7 @@ def main():
     parser.add_argument(
         "-m",
         "--model",
-        choices=["gpt-4o", "gpt-4-turbo", "o3-mini", "sonnet", "r1"],
+        choices=["gpt-4o", "gpt-4-turbo", "o3-mini", "sonnet", "r1", "gpt-4.5"],
         default="gpt-4o",
         help="Specify which model to use",
     )
@@ -303,7 +303,7 @@ def main():
             finished = False
             print(f"{AI_COLOR}AI:{RESET_COLOR}", end=" ", flush=True)
 
-            if args.model in ["gpt-4o", "gpt-4-turbo", "o3-mini"]:
+            if args.model in ["gpt-4o", "gpt-4-turbo", "o3-mini", "gpt-4.5"]:
                 response = llm_client.get_openai_response(
                     chat_history.messages,
                     config.models[args.model]

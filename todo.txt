@@ -1,9 +1,11 @@
 - google models, deepseek models
-- thinking models?
+- thinking models? toggleable thinking trace?
 - tree history like in chatgpt?
 - file upload with <...> syntax, manual (autocomplete?) and on ctrl+v?
 - nvim plugin, the plugin functionality could allow navigating the tree history
 - maybe save all chats, if so implement saved chats viewer and search
+- vhs demo
+- textual?
 
 Glossary:
 ? -> if possible
