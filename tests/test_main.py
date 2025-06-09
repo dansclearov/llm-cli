@@ -16,7 +16,7 @@ def config():
         max_history_pairs=3,
         retry_attempts=3,
         min_retry_wait=1,
-        max_retry_wait=2
+        max_retry_wait=2,
     )
 
 
@@ -52,7 +52,7 @@ def test_chat_history_save(chat_history, tmp_path):
     chat_history.config.chat_dir = str(tmp_path)
     chat_history.messages = [
         {"role": "system", "content": "test system"},
-        {"role": "user", "content": "test user"}
+        {"role": "user", "content": "test user"},
     ]
 
     # Execute
@@ -69,7 +69,7 @@ def test_chat_history_save(chat_history, tmp_path):
 def test_chat_history_load(chat_history):
     test_messages = [
         {"role": "system", "content": "test system"},
-        {"role": "user", "content": "test user"}
+        {"role": "user", "content": "test user"},
     ]
     mock_file = mock_open(read_data=json.dumps(test_messages))
 
@@ -87,12 +87,12 @@ def test_chat_history_load_file_not_found(chat_history):
 def test_chat_history_append_from_file(chat_history):
     original_messages = [
         {"role": "system", "content": "system1"},
-        {"role": "user", "content": "user1"}
+        {"role": "user", "content": "user1"},
     ]
     append_messages = [
         {"role": "system", "content": "system2"},
         {"role": "user", "content": "user2"},
-        {"role": "assistant", "content": "assistant2"}
+        {"role": "assistant", "content": "assistant2"},
     ]
     chat_history.messages = original_messages.copy()
 
@@ -157,12 +157,7 @@ def test_input_handler_single_line(mock_print, mock_input):
 @patch("builtins.input")
 @patch("builtins.print")
 def test_input_handler_multi_line(mock_print, mock_input):
-    mock_input.side_effect = [
-        ">start",
-        "line 1",
-        "line 2",
-        ">>"
-    ]
+    mock_input.side_effect = [">start", "line 1", "line 2", ">>"]
     handler = InputHandler()
     result = handler.get_user_input()
     assert result == "line 1\nline 2"
