@@ -1,0 +1,44 @@
+# Model capabilities configuration
+# Defaults: supports_search=false, supports_thinking=false, max_tokens=null
+
+anthropic:
+  claude-sonnet-4-20250514:
+    supports_search: true
+    supports_thinking: false
+    max_tokens: 8192
+    
+  claude-opus-4-20250514:
+    supports_search: true
+    supports_thinking: false
+    max_tokens: 8192
+
+openai:
+  chatgpt-4o-latest:
+    # Uses all defaults
+    
+  gpt-4.5-preview:
+    # Uses all defaults
+    
+  gpt-4-turbo:
+    # Uses all defaults
+    
+  o4-mini:
+    supports_thinking: true
+    
+  o3:
+    supports_thinking: true
+
+deepseek:
+  deepseek-reasoner:
+    supports_thinking: true
+
+xai:
+  grok-beta:
+    supports_search: true
+
+gemini:
+  gemini-2.5-pro:
+    # Uses all defaults
+    
+  gemini-2.5-flash:
+    # Uses all defaults

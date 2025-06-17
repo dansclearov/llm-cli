@@ -1,9 +1,10 @@
-import pytest
-from unittest.mock import patch, mock_open
 import json
+from unittest.mock import mock_open, patch
 
-from llm_cli.main import Config, ChatHistory, LLMClient, InputHandler
-from llm_cli.constants import MODEL_MAPPINGS
+import pytest
+
+from llm_cli.config import Config
+from llm_cli.main import ChatHistory, InputHandler, LLMClient
 
 
 # Fixtures
@@ -12,11 +13,7 @@ def config():
     return Config(
         chat_dir="/test/chats",
         temp_file="test_session.json",
-        models=MODEL_MAPPINGS,
         max_history_pairs=3,
-        retry_attempts=3,
-        min_retry_wait=1,
-        max_retry_wait=2,
     )
 
 
@@ -26,8 +23,8 @@ def chat_history(config):
 
 
 @pytest.fixture
-def llm_client(config):
-    return LLMClient(config)
+def llm_client():
+    return LLMClient()
 
 
 # Test Config
@@ -35,11 +32,7 @@ def test_config_defaults():
     config = Config()
     assert isinstance(config.chat_dir, str)
     assert isinstance(config.temp_file, str)
-    assert config.models == MODEL_MAPPINGS
     assert config.max_history_pairs == 3
-    assert config.retry_attempts == 3
-    assert config.min_retry_wait == 4
-    assert config.max_retry_wait == 10
 
 
 # Test ChatHistory
@@ -108,12 +101,9 @@ def test_chat_history_append_from_file(chat_history):
 
 
 # Test LLMClient
-@patch("openai.OpenAI")
-@patch("anthropic.Anthropic")
-def test_llm_client_init(mock_anthropic, mock_openai):
-    client = LLMClient(Config())
-    assert client.openai is not None
-    assert client.anthropic is not None
+def test_llm_client_init():
+    client = LLMClient()
+    assert client.registry is not None
 
 
 # Test InputHandler

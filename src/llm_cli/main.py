@@ -1,22 +1,16 @@
 import argparse
-import os
 import json
-import requests
 from pathlib import Path
-from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
-from tenacity import retry, stop_after_attempt, wait_exponential
-from platformdirs import user_data_dir
 
+from colored import attr, fg
 from dotenv import load_dotenv
-from openai import OpenAI
-from anthropic import Anthropic
+from tenacity import retry, stop_after_attempt, wait_exponential
 
-from colored import fg, attr
-
-from llm_cli.constants import MODEL_MAPPINGS
+from llm_cli.config import Config, setup_providers
+from llm_cli.providers.base import ChatOptions
+from llm_cli.response_handler import ResponseHandler
 from llm_cli.utils import read_system_message_from_file
-
 
 load_dotenv()
 
@@ -24,24 +18,6 @@ USER_COLOR = fg("green") + attr("bold")
 AI_COLOR = fg("blue") + attr("bold")
 SYSTEM_COLOR = fg("violet") + attr("bold")
 RESET_COLOR = attr("reset")
-
-
-@dataclass
-class Config:
-    chat_dir: str = field(
-        default_factory=lambda: os.getenv(
-            "LLM_CLI_CHAT_DIR",
-            str(Path(user_data_dir("llm_cli", ensure_exists=True)) / "chats"),
-        )
-    )
-    temp_file: str = field(
-        default_factory=lambda: os.getenv("LLM_CLI_TEMP_FILE", "temp_session.json")
-    )
-    models: Dict[str, str] = field(default_factory=lambda: MODEL_MAPPINGS)
-    max_history_pairs: int = 3
-    retry_attempts: int = 3
-    min_retry_wait: int = 4
-    max_retry_wait: int = 10
 
 
 class ChatHistory:
@@ -97,166 +73,43 @@ class ChatHistory:
 
 
 class LLMClient:
-    def __init__(self, config: Config):
-        self.config = config
-        self.openai = OpenAI()
-        # Deepseek and Xai support OpenAI's API schema
-        self.deepseek = OpenAI(
-            api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com"
-        )
-        self.xai = OpenAI(
-            api_key=os.getenv("XAI_API_KEY"), base_url="https://api.x.ai/v1"
-        )
-        self.anthropic = Anthropic()
+    def __init__(self):
+        self.registry = setup_providers()
 
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
     )
-    def get_deepseek_response(
+    def chat(
         self,
         messages: List[Dict[str, str]],
-        model: str,
+        model_alias: str,
+        options: ChatOptions = None,
     ) -> str:
-        """Get response from Deepseek API with retry logic."""
-        completion = self.deepseek.chat.completions.create(
-            model=model, messages=messages, stream=True
-        )
+        """Get response from the specified model."""
+        if options is None:
+            options = ChatOptions()
 
-        response_str = ""
-        is_reasoning_output = True
-        print("<reasoning>", flush=True)
-        for chunk in completion:
-            if chunk.choices[0].delta.reasoning_content:
-                print(chunk.choices[0].delta.reasoning_content, end="", flush=True)
-            else:
-                message_content = chunk.choices[0].delta.content
-                if message_content:
-                    if is_reasoning_output:
-                        print("\n</reasoning>", flush=True)
-                        is_reasoning_output = False
-                    print(message_content, end="", flush=True)
-                    response_str += message_content
-        return response_str
+        try:
+            provider, model_id = self.registry.get_provider_for_model(model_alias)
+            capabilities = provider.get_capabilities(model_id)
 
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
-    def get_openai_response(self, messages: List[Dict[str, str]], model: str) -> str:
-        """Get response from OpenAI API with retry logic."""
-        completion = self.openai.chat.completions.create(
-            model=model, messages=messages, stream=True
-        )
+            # Validate options against capabilities
+            if options.enable_search and not capabilities.supports_search:
+                print(f"Warning: {model_alias} doesn't support search.")
+                options.enable_search = False
 
-        response_str = ""
-        for chunk in completion:
-            message_content = chunk.choices[0].delta.content
-            if message_content:
-                print(message_content, end="", flush=True)
-                response_str += message_content
-        return response_str
+            # Set up response handler
+            handler = ResponseHandler(capabilities, options)
 
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
-    def get_xai_response(
-        self, messages: List[Dict[str, str]], model: str, enable_search: bool = True
-    ) -> str:
-        """Get response from XAI API with retry logic and optional search."""
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {os.getenv('XAI_API_KEY')}",
-        }
+            # Stream response
+            for chunk in provider.stream_response(messages, model_id, options):
+                handler.handle_chunk(chunk)
 
-        payload = {"messages": messages, "model": model, "stream": True}
+            return handler.get_full_response()
 
-        if enable_search:
-            payload["search_parameters"] = {"mode": "auto"}
-
-        response = requests.post(
-            "https://api.x.ai/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            stream=True,
-        )
-        response.raise_for_status()
-
-        response_str = ""
-        for line in response.iter_lines():
-            if line.startswith(b"data: "):
-                line_data = line[6:]
-                if line_data.strip() == b"[DONE]":
-                    break
-                try:
-                    data = json.loads(line_data)
-                    content = data["choices"][0]["delta"].get("content")
-                    if content:
-                        print(content, end="", flush=True)
-                        response_str += content
-                except (KeyError, json.JSONDecodeError):
-                    continue
-
-        return response_str
-
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
-    def get_anthropic_response(self, messages: List[Dict[str, str]], model: str) -> str:
-        """Get response from Anthropic API with retry logic."""
-        with self.anthropic.messages.stream(
-            model=model,
-            messages=messages[1:],
-            system=messages[0]["content"],
-            max_tokens=1024,
-        ) as stream:
-            response_str = ""
-            for text in stream.text_stream:
-                print(text, end="", flush=True)
-                response_str += text
-            return response_str
-
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
-    )
-    def get_gemini_response(self, messages: List[Dict[str, str]], model: str) -> str:
-        """Get response from Gemini API with retry logic."""
-        # Convert format
-        payload = {"contents": []}
-
-        system_msg = next(
-            (msg["content"] for msg in messages if msg["role"] == "system"), None
-        )
-        if system_msg:
-            payload["system_instruction"] = {"parts": [{"text": system_msg}]}
-
-        for msg in messages:
-            if msg["role"] == "system":
-                continue
-            role = "model" if msg["role"] == "assistant" else "user"
-            payload["contents"].append(
-                {"role": role, "parts": [{"text": msg["content"]}]}
-            )
-
-        # Stream request
-        response = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse",
-            headers={"Content-Type": "application/json"},
-            json=payload,
-            params={"key": os.getenv("GEMINI_API_KEY")},
-            stream=True,
-        )
-
-        response_str = ""
-        for line in response.iter_lines():
-            if line.startswith(b"data: "):
-                try:
-                    data = json.loads(line[6:])
-                    text = data["candidates"][0]["content"]["parts"][0]["text"]
-                    print(text, end="", flush=True)
-                    response_str += text
-                except (KeyError, json.JSONDecodeError):
-                    raise
-
-        return response_str
+        except Exception as e:
+            # Re-raise to let tenacity handle retries
+            raise e
 
 
 class InputHandler:
@@ -297,6 +150,10 @@ class InputHandler:
 
 
 def main():
+    # Get available models from registry
+    registry = setup_providers()
+    available_models = list(registry.get_available_models().keys())
+
     parser = argparse.ArgumentParser(description="Run an interactive LLM chat session.")
     parser.add_argument(
         "prompt",
@@ -307,7 +164,7 @@ def main():
     parser.add_argument(
         "-m",
         "--model",
-        choices=list(MODEL_MAPPINGS.keys()),
+        choices=available_models,
         default="gpt-4o",
         help="Specify which model to use",
     )
@@ -317,13 +174,36 @@ def main():
         metavar="FILENAME",
         help="Load a chat history file at startup",
     )
+    parser.add_argument(
+        "--search",
+        action="store_true",
+        help="Enable search (if supported by model)",
+    )
+    parser.add_argument(
+        "--thinking",
+        action="store_true",
+        default=True,
+        help="Enable thinking mode (if supported by model)",
+    )
+    parser.add_argument(
+        "--hide-thinking",
+        action="store_true",
+        help="Hide thinking trace display",
+    )
 
     args = parser.parse_args()
 
     config = Config()
     chat_history = ChatHistory(config)
-    llm_client = LLMClient(config)
+    llm_client = LLMClient()
     input_handler = InputHandler()
+
+    # Set up chat options
+    chat_options = ChatOptions(
+        enable_search=args.search,
+        enable_thinking=args.thinking,
+        show_thinking=not args.hide_thinking,
+    )
 
     print(
         f"Interactive {args.model} chat session. "
@@ -381,27 +261,7 @@ def main():
             finished = False
             print(f"{AI_COLOR}AI:{RESET_COLOR}", end=" ", flush=True)
 
-            if args.model in ["gpt-4o", "gpt-4-turbo", "o4-mini", "o3", "gpt-4.5"]:
-                response = llm_client.get_openai_response(
-                    chat_history.messages, config.models[args.model]
-                )
-            elif args.model == "r1":
-                response = llm_client.get_deepseek_response(
-                    chat_history.messages, config.models[args.model]
-                )
-            elif args.model in ["gemini-2.5-pro", "gemini-2.5-flash"]:
-                response = llm_client.get_gemini_response(
-                    chat_history.messages, config.models[args.model]
-                )
-            elif args.model == "grok-3":
-                response = llm_client.get_xai_response(
-                    chat_history.messages, config.models[args.model]
-                )
-            else:
-                response = llm_client.get_anthropic_response(
-                    chat_history.messages, config.models[args.model]
-                )
-
+            response = llm_client.chat(chat_history.messages, args.model, chat_options)
             chat_history.messages.append({"role": "assistant", "content": response})
 
             print()
