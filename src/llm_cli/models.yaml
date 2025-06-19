@@ -3,12 +3,12 @@
 
 anthropic:
   claude-sonnet-4-20250514:
-    supports_search: true
+    supports_search: false
     supports_thinking: false
     max_tokens: 8192
     
   claude-opus-4-20250514:
-    supports_search: true
+    supports_search: false
     supports_thinking: false
     max_tokens: 8192
 
