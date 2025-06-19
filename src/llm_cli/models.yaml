@@ -13,14 +13,11 @@ anthropic:
     max_tokens: 8192
 
 openai:
-  chatgpt-4o-latest:
-    # Uses all defaults
+  chatgpt-4o-latest: {}
     
-  gpt-4.5-preview:
-    # Uses all defaults
+  gpt-4.5-preview: {}
     
-  gpt-4-turbo:
-    # Uses all defaults
+  gpt-4-turbo: {}
     
   o4-mini:
     supports_thinking: true
@@ -37,8 +34,6 @@ xai:
     supports_search: true
 
 gemini:
-  gemini-2.5-pro:
-    # Uses all defaults
+  gemini-2.5-pro: {}
     
-  gemini-2.5-flash:
-    # Uses all defaults
+  gemini-2.5-flash: {}
