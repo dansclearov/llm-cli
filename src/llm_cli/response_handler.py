@@ -1,45 +1,41 @@
 from .providers.base import ChatOptions, ModelCapabilities, StreamChunk
+from .renderers import StyledRenderer, PlainTextRenderer, ResponseRenderer
 
 
 class ResponseHandler:
     """Handles streaming responses from different providers uniformly."""
 
-    def __init__(self, capabilities: ModelCapabilities, options: ChatOptions):
+    def __init__(
+        self,
+        capabilities: ModelCapabilities,
+        options: ChatOptions,
+        use_styled_output: bool = False,
+    ):
         self.capabilities = capabilities
         self.options = options
-        self.thinking_started = False
-        self.content_started = False
-        self.response_content = ""
+
+        # Choose renderer based on flag
+        if use_styled_output:
+            self.renderer: ResponseRenderer = StyledRenderer(capabilities, options)
+        else:
+            self.renderer: ResponseRenderer = PlainTextRenderer(capabilities, options)
+
+    def start_response(self) -> None:
+        """Initialize the response rendering."""
+        self.renderer.start_response()
 
     def handle_chunk(self, chunk: StreamChunk) -> str:
         """Handle a single streaming chunk and return any content added."""
-        content_added = ""
+        return self.renderer.handle_chunk(chunk)
 
-        # Handle thinking trace
-        if chunk.thinking and self.capabilities.supports_thinking:
-            if self.options.show_thinking:
-                if not self.thinking_started:
-                    print("<thinking>", flush=True)
-                    self.thinking_started = True
-                print(chunk.thinking, end="", flush=True)
-
-        # Handle main content
-        if chunk.content:
-            # Close thinking section if we're transitioning to content
-            if (
-                self.thinking_started
-                and not self.content_started
-                and self.options.show_thinking
-            ):
-                print("\n</thinking>\n", flush=True)
-                self.content_started = True
-
-            print(chunk.content, end="", flush=True)
-            content_added = chunk.content
-            self.response_content += chunk.content
-
-        return content_added
+    def finish_response(self) -> None:
+        """Finalize the response rendering."""
+        self.renderer.finish_response()
 
     def get_full_response(self) -> str:
         """Get the complete response content."""
-        return self.response_content
+        return self.renderer.get_full_response()
+
+    def mark_interrupted(self) -> None:
+        """Mark the response as interrupted by user."""
+        self.renderer.mark_interrupted()

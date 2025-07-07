@@ -14,9 +14,6 @@ class DeepSeekProvider(LLMProvider):
         self.client = OpenAI(
             api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com"
         )
-        self._models = {
-            "r1": "deepseek-reasoner",
-        }
 
     def get_capabilities(self, model: str) -> ModelCapabilities:
         """Get capabilities for DeepSeek models."""
@@ -27,10 +24,6 @@ class DeepSeekProvider(LLMProvider):
             supports_thinking=config["supports_thinking"],
             max_tokens=config["max_tokens"],
         )
-
-    def get_available_models(self) -> Dict[str, str]:
-        """Get available DeepSeek models."""
-        return self._models.copy()
 
     def stream_response(
         self, messages: List[Dict[str, str]], model: str, options: ChatOptions

@@ -14,9 +14,6 @@ class XAIProvider(LLMProvider):
     def __init__(self):
         self.api_key = os.getenv("XAI_API_KEY")
         self.base_url = "https://api.x.ai/v1"
-        self._models = {
-            "grok-3": "grok-3",
-        }
 
     def get_capabilities(self, model: str) -> ModelCapabilities:
         """Get capabilities for xAI models."""
@@ -27,10 +24,6 @@ class XAIProvider(LLMProvider):
             supports_thinking=config["supports_thinking"],
             max_tokens=config["max_tokens"],
         )
-
-    def get_available_models(self) -> Dict[str, str]:
-        """Get available xAI models."""
-        return self._models.copy()
 
     def stream_response(
         self, messages: List[Dict[str, str]], model: str, options: ChatOptions

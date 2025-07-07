@@ -1,6 +1,18 @@
 # Model capabilities configuration
 # Defaults: supports_search=false, supports_thinking=false, max_tokens=null
 
+# Centralized model aliases
+aliases:
+  # Default model (used when no -m provided)
+  default: anthropic/claude-sonnet-4-20250514
+  
+  # Meaningful aliases only (where alias != model name)
+  sonnet: anthropic/claude-sonnet-4-20250514
+  opus: anthropic/claude-opus-4-20250514
+  gpt-4o: openai/chatgpt-4o-latest
+  gpt-4.5: openai/gpt-4.5-preview
+  r1: deepseek/deepseek-reasoner
+
 anthropic:
   claude-sonnet-4-20250514:
     supports_search: false
@@ -30,7 +42,7 @@ deepseek:
     supports_thinking: true
 
 xai:
-  grok-beta:
+  grok-3:
     supports_search: true
 
 gemini:

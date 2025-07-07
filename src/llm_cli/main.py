@@ -1,12 +1,13 @@
 import argparse
-import json
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+import signal
+import sys
+from typing import Dict, List, Optional
 
 from colored import attr, fg
 from dotenv import load_dotenv
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from llm_cli.chat_manager import Chat, ChatManager
 from llm_cli.config import Config, setup_providers
 from llm_cli.providers.base import ChatOptions
 from llm_cli.response_handler import ResponseHandler
@@ -19,62 +20,26 @@ AI_COLOR = fg("blue") + attr("bold")
 SYSTEM_COLOR = fg("violet") + attr("bold")
 RESET_COLOR = attr("reset")
 
+# Constants
+MIN_MESSAGES_FOR_SMART_TITLE = 8
+MESSAGES_PER_HISTORY_PAIR = 2
 
-class ChatHistory:
-    def __init__(self, config: Config):
-        self.config = config
-        self.messages: List[Dict[str, str]] = []
 
-    def save(self, filename: str) -> None:
-        """Save chat history to a file."""
-        filepath = Path(self.config.chat_dir) / filename
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, "w") as f:
-            json.dump(self.messages, f, indent=2)
+def print_all_messages(messages: List[Dict[str, str]]) -> None:
+    """Print all messages in the conversation history."""
+    for msg in messages:
+        if msg["role"] == "system":
+            continue
 
-    def load(self, filename: str) -> None:
-        """Load chat history from a file."""
-        filepath = Path(self.config.chat_dir) / filename
-        try:
-            with open(filepath, "r") as f:
-                self.messages = json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Chat history file not found: {filepath}")
-
-    def append_from_file(self, filename: str) -> None:
-        """Append messages from another chat history file."""
-        filepath = Path(self.config.chat_dir) / filename
-        with open(filepath, "r") as f:
-            file_messages = json.load(f)
-
-        # Remove system message from loaded history
-        filtered_messages = [msg for msg in file_messages if msg["role"] != "system"]
-        self.messages.extend(filtered_messages)
-
-    def print_last_messages(self, page: int = 0) -> None:
-        """Print the last N pairs of messages with optional pagination."""
-        num_pairs = self.config.max_history_pairs
-        total_messages = len(self.messages)
-
-        start_idx = max(1, total_messages - (page + 1) * 2 * num_pairs)
-        end_idx = total_messages - page * 2 * num_pairs
-
-        if start_idx > 1:
-            print("...")
-
-        messages_slice = self.messages[start_idx:end_idx]
-        for msg in messages_slice:
-            if msg["role"] == "system":
-                continue
-
-            role_label = "Human" if msg["role"] == "user" else "AI"
-            role_color = USER_COLOR if msg["role"] == "user" else AI_COLOR
-            print(f"{role_color}{role_label}: {RESET_COLOR}{msg['content']}")
+        role_label = "Human" if msg["role"] == "user" else "AI"
+        role_color = USER_COLOR if msg["role"] == "user" else AI_COLOR
+        print(f"{role_color}{role_label}: {RESET_COLOR}{msg['content']}")
 
 
 class LLMClient:
     def __init__(self):
         self.registry = setup_providers()
+        self.interrupt_handler = None
 
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
@@ -99,11 +64,30 @@ class LLMClient:
                 options.enable_search = False
 
             # Set up response handler
-            handler = ResponseHandler(capabilities, options)
+            handler = ResponseHandler(capabilities, options, use_styled_output=True)
+            self.interrupt_handler = handler
 
-            # Stream response
-            for chunk in provider.stream_response(messages, model_id, options):
-                handler.handle_chunk(chunk)
+            # Set up signal handler for interrupt during streaming
+            def handle_interrupt(signum, frame):
+                if self.interrupt_handler:
+                    self.interrupt_handler.mark_interrupted()
+                    raise KeyboardInterrupt()
+
+            old_handler = signal.signal(signal.SIGINT, handle_interrupt)
+
+            try:
+                # Stream response
+                handler.start_response()
+                for chunk in provider.stream_response(messages, model_id, options):
+                    handler.handle_chunk(chunk)
+                handler.finish_response()
+            except KeyboardInterrupt:
+                # Handle interrupt gracefully during streaming
+                handler.finish_response()
+            finally:
+                # Restore original signal handler
+                signal.signal(signal.SIGINT, old_handler)
+                self.interrupt_handler = None
 
             return handler.get_full_response()
 
@@ -132,26 +116,9 @@ class InputHandler:
             return "\n".join(lines)
         return first_line
 
-    @staticmethod
-    def parse_command(input_str: str) -> Tuple[Optional[str], Optional[str]]:
-        """Parse special commands from input."""
-        if not input_str.startswith("%"):
-            return None, None
 
-        parts = input_str.split(maxsplit=1)
-        command = parts[0][1:]  # Remove the % prefix
-        args = parts[1] if len(parts) > 1 else None
-
-        valid_commands = {"save", "load", "append"}
-        if command not in valid_commands:
-            raise ValueError(f"Unknown command: {command}")
-
-        return command, args
-
-
-def main():
-    # Get available models from registry
-    registry = setup_providers()
+def parse_arguments(registry) -> argparse.Namespace:
+    """Parse command line arguments."""
     available_models = list(registry.get_available_models().keys())
 
     parser = argparse.ArgumentParser(description="Run an interactive LLM chat session.")
@@ -165,14 +132,22 @@ def main():
         "-m",
         "--model",
         choices=available_models,
-        default="gpt-4o",
+        default=registry.get_default_model(),
         help="Specify which model to use",
     )
     parser.add_argument(
-        "-l",
-        "--load",
-        metavar="FILENAME",
-        help="Load a chat history file at startup",
+        "-r",
+        "--resume",
+        nargs="?",
+        const="",
+        metavar="CHAT_ID",
+        help="Resume a chat: no ID shows selector, with ID loads specific chat",
+    )
+    parser.add_argument(
+        "-c",
+        "--continue",
+        action="store_true",
+        help="Continue the most recent chat",
     )
     parser.add_argument(
         "--search",
@@ -191,10 +166,22 @@ def main():
         help="Hide thinking trace display",
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def setup_configuration(
+    args: argparse.Namespace,
+) -> tuple[Config, ChatManager, LLMClient, InputHandler, ChatOptions, str]:
+    """Set up configuration and components.
+
+    Args:
+        args: Parsed command line arguments
+
+    Returns:
+        Tuple of (config, chat_manager, llm_client, input_handler, chat_options, prompt_str)
+    """
     config = Config()
-    chat_history = ChatHistory(config)
+    chat_manager = ChatManager(config)
     llm_client = LLMClient()
     input_handler = InputHandler()
 
@@ -205,36 +192,125 @@ def main():
         show_thinking=not args.hide_thinking,
     )
 
-    print(
-        f"Interactive {args.model} chat session. "
-        "Press Ctrl+C to exit. Use '>' to enter multi-line input."
-    )
-
     prompt_str = read_system_message_from_file("prompt_" + args.prompt + ".txt")
 
-    if args.load:
-        chat_history.load(args.load)
+    return config, chat_manager, llm_client, input_handler, chat_options, prompt_str
 
-        # Show system message if it differs
-        loaded_system_message = next(
-            (
-                msg["content"]
-                for msg in chat_history.messages
-                if msg["role"] == "system"
-            ),
+
+def handle_chat_selection(
+    args: argparse.Namespace, chat_manager: ChatManager
+) -> Optional[Chat]:
+    """Handle chat selection/loading based on arguments.
+
+    Args:
+        args: Parsed command line arguments
+        chat_manager: Chat manager instance
+
+    Returns:
+        Chat instance if found/selected, None if new chat should be created
+    """
+    current_chat: Optional[Chat] = None
+
+    if args.resume is not None:
+        if args.resume:  # Specific chat ID provided
+            try:
+                current_chat = Chat.load(args.resume)
+                print(f"Loaded chat: {current_chat.metadata.title}")
+            except FileNotFoundError:
+                print(f"Chat not found: {args.resume}")
+                return None
+        else:  # No ID provided, show selector
+            current_chat = chat_manager.interactive_chat_selection()
+            if current_chat is None:
+                # User cancelled, exit
+                sys.exit(0)
+    elif getattr(args, "continue"):
+        # Continue most recent chat
+        current_chat = chat_manager.get_last_chat()
+        if not current_chat:
+            print("No previous chats found. Starting new chat...")
+
+    return current_chat
+
+
+def create_new_chat(
+    args: argparse.Namespace,
+    chat_manager: ChatManager,
+    input_handler: InputHandler,
+    llm_client: LLMClient,
+    prompt_str: str,
+    chat_options: ChatOptions,
+) -> Optional[Chat]:
+    """Create a new chat session.
+
+    Args:
+        args: Parsed command line arguments
+        chat_manager: Chat manager instance
+        input_handler: Input handler for user input
+        llm_client: LLM client for API calls
+        prompt_str: System prompt string
+        chat_options: Chat configuration options
+
+    Returns:
+        New chat instance, or None if user cancelled during creation
+    """
+    print(
+        f"Starting new {args.model} chat session. "
+        "Press Ctrl+C to exit. Use '>' for multi-line input."
+    )
+    print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
+
+    # Get first user message to create chat
+    try:
+        first_message = input_handler.get_user_input()
+    except KeyboardInterrupt:
+        return None
+
+    current_chat = chat_manager.create_new_chat(args.model, prompt_str, first_message)
+
+    # Process first message immediately
+    response = llm_client.chat(current_chat.messages, args.model, chat_options)
+    current_chat.messages.append({"role": "assistant", "content": response})
+    current_chat.save()
+
+    return current_chat
+
+
+def run_chat_loop(
+    current_chat: Chat,
+    args: argparse.Namespace,
+    chat_manager: ChatManager,
+    llm_client: LLMClient,
+    input_handler: InputHandler,
+    chat_options: ChatOptions,
+    prompt_str: str,
+    is_new_chat: bool = False,
+) -> None:
+    """Run the main chat interaction loop.
+
+    Args:
+        current_chat: Active chat session
+        args: Parsed command line arguments
+        chat_manager: Chat manager instance
+        llm_client: LLM client for API calls
+        input_handler: Input handler for user input
+        chat_options: Chat configuration options
+        prompt_str: System prompt string for display
+        is_new_chat: True if this is a newly created chat (skip initial display)
+    """
+    # Only show initial display for existing chats
+    if not is_new_chat:
+        # Show system message if different from current prompt
+        system_message = next(
+            (msg["content"] for msg in current_chat.messages if msg["role"] == "system"),
             "",
         )
-        if loaded_system_message != prompt_str:
-            print(
-                f"{SYSTEM_COLOR}System (loaded):{RESET_COLOR} {loaded_system_message}"
-            )
+        if system_message != prompt_str:
+            print(f"{SYSTEM_COLOR}System (from chat):{RESET_COLOR} {system_message}")
         else:
             print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
 
-        chat_history.print_last_messages()
-    else:
-        chat_history.messages = [{"role": "system", "content": prompt_str}]
-        print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
+        print_all_messages(current_chat.messages)
 
     # Main interaction loop
     finished = True
@@ -242,29 +318,25 @@ def main():
         try:
             user_input = input_handler.get_user_input()
 
-            # Handle special commands
-            cmd, cmd_args = input_handler.parse_command(user_input)
-            if cmd:
-                if cmd == "save" and cmd_args:
-                    chat_history.save(cmd_args)
-                elif cmd == "load" and cmd_args:
-                    chat_history.load(cmd_args)
-                    chat_history.print_last_messages()
-                elif cmd == "append" and cmd_args:
-                    chat_history.append_from_file(cmd_args)
-                    chat_history.print_last_messages()
-                continue
-
             # Process normal input
-            chat_history.messages.append({"role": "user", "content": user_input})
+            current_chat.messages.append({"role": "user", "content": user_input})
 
             finished = False
-            print(f"{AI_COLOR}AI:{RESET_COLOR}", end=" ", flush=True)
+            response = llm_client.chat(current_chat.messages, args.model, chat_options)
+            current_chat.messages.append({"role": "assistant", "content": response})
+            current_chat.save()  # Auto-save after each exchange
 
-            response = llm_client.chat(chat_history.messages, args.model, chat_options)
-            chat_history.messages.append({"role": "assistant", "content": response})
+            # Generate smart title once we have enough conversation (only once per chat)
+            non_system_count = len(
+                [m for m in current_chat.messages if m["role"] != "system"]
+            )
+            should_generate_title = (
+                non_system_count >= MIN_MESSAGES_FOR_SMART_TITLE
+                and not current_chat.metadata.smart_title_generated
+            )
+            if should_generate_title:
+                chat_manager.generate_smart_title(current_chat, llm_client, args.model)
 
-            print()
             finished = True
 
         except KeyboardInterrupt:
@@ -272,8 +344,49 @@ def main():
                 finished = True
                 print("", flush=True)
             else:
-                chat_history.save(config.temp_file)
+                current_chat.save()  # Final save before exit
                 break
+
+
+def main():
+    """Main entry point for the LLM CLI application."""
+    registry = setup_providers()
+    args = parse_arguments(registry)
+    config, chat_manager, llm_client, input_handler, chat_options, prompt_str = (
+        setup_configuration(args)
+    )
+
+    # Handle chat selection/loading
+    current_chat = handle_chat_selection(args, chat_manager)
+    is_new_chat = False
+
+    if current_chat is None:
+        # Create new chat
+        current_chat = create_new_chat(
+            args, chat_manager, input_handler, llm_client, prompt_str, chat_options
+        )
+        if current_chat is None:  # User cancelled during creation
+            return
+        is_new_chat = True
+
+    # Show continuation message for existing chats
+    if not is_new_chat and current_chat.metadata.message_count > 2:
+        print(
+            f"Continuing chat: {current_chat.metadata.title} "
+            f"({current_chat.metadata.model}, {current_chat.metadata.message_count} messages)"
+        )
+        print("Press Ctrl+C to exit. Use '>' for multi-line input.")
+
+    run_chat_loop(
+        current_chat,
+        args,
+        chat_manager,
+        llm_client,
+        input_handler,
+        chat_options,
+        prompt_str,
+        is_new_chat,
+    )
 
 
 if __name__ == "__main__":

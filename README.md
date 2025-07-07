@@ -1,143 +1,208 @@
 # LLM-CLI
 
-A bare-bones command-line interface for interacting with large language models (LLMs) like GPT-4o and Claude 3.5 Sonnet.
+A multi-provider command-line interface for interacting with large language models (LLMs) like GPT-4o, Claude 4, DeepSeek, Gemini, and Grok.
 
 ## Features
 
-- Interact with OpenAI's GPT-4o and Anthropic's Claude models
-- Command-line interface for easy access
-- Optional Gradio web interface
-- Customizable system prompts with user-specific overrides
-- Support for multi-line input
-- Chat history management with save/load functionality
-- Automatic session persistence
-- Retry logic for API failures
-- Chat history pagination
+- **Multi-provider support**: OpenAI, Anthropic, DeepSeek, xAI (Grok), Google Gemini
+- **Centralized model management**: All models and aliases configured in YAML
+- **Interactive chat management**: Browse, resume, and continue previous conversations
+- **Real-time streaming**: Live response display with thinking traces (DeepSeek)
+- **Customizable prompts**: User-specific prompt overrides
+- **Session persistence**: Automatic chat saving with smart titles
+- **Model capabilities**: Per-model search and thinking mode support
+- **Flexible configuration**: User-configurable defaults and model aliases
+
+## Supported Models
+
+- **OpenAI**: GPT-4o, GPT-4.5, GPT-4 Turbo, o4-mini, o3
+- **Anthropic**: Claude Sonnet 4, Claude Opus 4  
+- **DeepSeek**: DeepSeek Reasoner (with reasoning traces)
+- **xAI**: Grok 3 (with search capabilities)
+- **Google**: Gemini 2.5 Pro, Gemini 2.5 Flash
 
 ## Installation
 
-### Using Poetry (for development)
+### Using uv (recommended)
 
 1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/llm-cli-ui.git
-   cd llm-cli-ui
+   ```bash
+   git clone https://github.com/dansclearov/llm-cli.git
+   cd llm-cli
    ```
 
-2. Install dependencies using Poetry:
-   ```
-   poetry install
+2. Install dependencies:
+   ```bash
+   uv install
    ```
 
 ### Global Installation with pipx
 
-For global installation, you have two options:
-
-1. Install directly from the GitHub repository:
-   ```
-   pipx install git+https://github.com/dansclearov/llm-cli.git
-   ```
-
-2. Install from a local copy (useful if you've cloned the project and made modifications):
-   ```
-   # Navigate to the project directory
-   cd path/to/llm-cli
-   
-   # Install the local package
-   pipx install -e .
-   ```
-
-   If you make changes to your local copy and want to update the installed version:
-   ```
-   pipx install --force -e .
-   ```
-
-I recommend `pipx` for managing global CLI packages, allowing you to use the `llm-cli` command from anywhere in your system, as well as adding aliases for models you use frequently in your shell configuration.
-
-### Environment Setup
-
-Set up your environment variables:
-Create a `.env` file in the root directory and add your API keys:
+Install directly from GitHub:
+```bash
+pipx install git+https://github.com/dansclearov/llm-cli.git
 ```
+
+Or install from local copy:
+```bash
+cd llm-cli
+pipx install -e .
+# Update after changes:
+pipx install --force -e .
+```
+
+## Configuration
+
+### API Keys
+
+Create a `.env` file in the root directory:
+```env
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
+XAI_API_KEY=your_xai_api_key
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
-Optionally, you can customize the chat history directory and temporary file name:
-```
-LLM_CLI_CHAT_DIR=/path/to/chat/history
-LLM_CLI_TEMP_FILE=custom_temp_session.json  # Default: temp_session.json
+### Model Configuration
+
+Models and aliases are configured in `src/llm_cli/models.yaml`:
+
+```yaml
+aliases:
+  # Default model (used when no -m provided)
+  default: anthropic/claude-sonnet-4-20250514
+  
+  # Custom aliases
+  sonnet: anthropic/claude-sonnet-4-20250514
+  opus: anthropic/claude-opus-4-20250514
+  gpt-4o: openai/chatgpt-4o-latest
+  gpt-4.5: openai/gpt-4.5-preview
+  r1: deepseek/deepseek-reasoner
+
+# Model capabilities and settings
+anthropic:
+  claude-sonnet-4-20250514:
+    supports_search: false
+    supports_thinking: false
+    max_tokens: 8192
+  # ... more models
 ```
 
-By default, chat histories are stored in:
-- Linux: `~/.local/share/llm_cli/chats/`
-- macOS: `~/Library/Application Support/llm_cli/chats/`
-- Windows: `C:\Users\<username>\AppData\Local\llm_cli\chats\`
+You can override this with a user config file at `~/.config/llm_cli/models.yaml`.
+
+### Chat Storage
+
+Chat histories are stored in:
+- **Linux**: `~/.local/share/llm_cli/chats/`
+- **macOS**: `~/Library/Application Support/llm_cli/chats/`
+- **Windows**: `C:\Users\<username>\AppData\Local\llm_cli\chats\`
+
+Override with `LLM_CLI_CHAT_DIR` environment variable.
 
 ## Usage
 
-### Command-line Interface
+### Basic Usage
 
-Run the CLI with:
-
-```
-llm-cli [prompt] [-m MODEL] [-l HISTORY_FILE]
-```
-
-- `prompt`: Optional. Specify the initial prompt for the chat session (default: "general")
-- `-m` or `--model`: Optional. Specify which model to use: "gpt-4o", "gpt-4-turbo", or "sonnet" (default: "gpt-4o")
-- `-l` or `--load`: Optional. Load a previous chat history file at startup
-
-Input '>' by itself to enter multi-line mode. End multi-line input with a line containing only ">>".
-
-### Special Commands
-
-During a chat session, you can use the following commands:
-
-- `%save filename`: Save the current chat history to a file
-- `%load filename`: Load a chat history from a file
-- `%append filename`: Append messages from another chat history file
-
-### Chat History Management
-
-Your chat session is automatically saved to a temporary file when exiting (either normally or due to an interruption). This temporary file gets overwritten with each new session, serving as a safety net in case of accidental closure. For persistent storage, use the `%save` command to save your chat history with a custom filename.
-
-### Gradio Web Interface
-
-To launch the Gradio web interface:
-
-```
-llm-cli-app
-```
-
-### Prompts
-
-The system looks for prompt files in two locations:
-1. User config directory:
-   - Linux: `~/.config/llm_cli/prompts/`
-   - macOS: `~/Library/Application Support/llm_cli/prompts/`
-   - Windows: `C:\Users\<username>\AppData\Local\llm_cli\prompts\`
-2. Package's built-in prompts directory
-
-Prompt files should follow the format `prompt_###.txt`, where `###` is any name you choose. You can specify these prompts when running the app by using the corresponding name.
-
-For example:
-- `prompt_general.txt` can be used with `llm-cli general`
-- `prompt_concise.txt` can be used with `llm-cli concise`
-
-To add a custom prompt, create a new file in your user config prompts directory following the naming convention. User prompts take precedence over package prompts with the same name.
-
-## Testing
-
-Run the test suite with pytest:
 ```bash
+# Use default model and prompt
+llm-cli
+
+# Specify model and prompt
+llm-cli concise -m sonnet
+
+# Use model alias
+llm-cli -m gpt-4o
+
+# Enable search (if supported)
+llm-cli --search -m grok-3
+
+# Enable thinking mode with reasoning traces
+llm-cli --thinking -m r1
+```
+
+### Chat Management
+
+```bash
+# Resume last chat
+llm-cli -c
+
+# Show chat selector
+llm-cli -r
+
+# Resume specific chat by ID
+llm-cli -r chat_20240622_143022_a1b2c3d4
+```
+
+### Available Options
+
+```
+llm-cli [prompt] [options]
+
+Arguments:
+  prompt              System prompt name (default: general)
+
+Options:
+  -m, --model         Model to use (default from config)
+  -r, --resume        Resume chat (with ID or show selector)
+  -c, --continue      Continue most recent chat
+  --search            Enable search (if supported)
+  --thinking          Enable thinking mode (default: true)
+  --hide-thinking     Hide thinking trace display
+```
+
+### Input Methods
+
+- **Single line**: Type normally and press Enter
+- **Multi-line**: Type `>` and press Enter, then type multiple lines, end with `>>`
+
+### Interactive Features
+
+- **Auto-save**: Chats save automatically after each exchange
+- **Smart titles**: Automatically generated based on conversation content
+- **Streaming output**: Real-time response display as models generate
+- **Thinking traces**: Styled reasoning process display for supported models
+- **Interrupt handling**: Ctrl+C gracefully stops generation
+
+## Prompts
+
+Prompts are loaded from:
+1. **User config**: `~/.config/llm_cli/prompts/` (takes precedence)
+2. **Built-in**: Package prompts directory
+
+Create custom prompts as `prompt_[name].txt`:
+- `prompt_general.txt` → `llm-cli general`
+- `prompt_concise.txt` → `llm-cli concise`
+- `prompt_coding.txt` → `llm-cli coding`
+
+## Development
+
+### Setup
+```bash
+uv install --group dev
+```
+
+### Code Quality
+```bash
+# Format code
+black .
+isort .
+
+# Type checking
+mypy .
+
+# Run tests
 pytest
 ```
 
-## Contributing
+### Architecture
 
-This project is primarily for personal use, but feel free to fork and modify it for your own needs.
+- **Provider system**: Unified interface for all LLM APIs
+- **Model registry**: YAML-based configuration and discovery
+- **Chat management**: Rich interactive session handling
+- **Streaming**: Real-time response display with provider-specific features
+- **Configuration**: Dual-location config system (user + package)
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+MIT License - see LICENSE file for details.

@@ -14,10 +14,6 @@ class GeminiProvider(LLMProvider):
     def __init__(self):
         self.api_key = os.getenv("GEMINI_API_KEY")
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
-        self._models = {
-            "gemini-2.5-pro": "gemini-2.5-pro-preview-06-05",
-            "gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
-        }
 
     def get_capabilities(self, model: str) -> ModelCapabilities:
         """Get capabilities for Gemini models."""
@@ -28,10 +24,6 @@ class GeminiProvider(LLMProvider):
             supports_thinking=config["supports_thinking"],
             max_tokens=config["max_tokens"],
         )
-
-    def get_available_models(self) -> Dict[str, str]:
-        """Get available Gemini models."""
-        return self._models.copy()
 
     def stream_response(
         self, messages: List[Dict[str, str]], model: str, options: ChatOptions

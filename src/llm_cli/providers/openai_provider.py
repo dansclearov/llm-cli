@@ -11,14 +11,6 @@ class OpenAIProvider(LLMProvider):
 
     def __init__(self):
         self.client = OpenAI()
-        self._models = {
-            "gpt-4o": "chatgpt-4o-latest",
-            "gpt-4.1": "gpt-4.1",
-            "gpt-4.5": "gpt-4.5-preview",
-            "gpt-4-turbo": "gpt-4-turbo",
-            "o4-mini": "o4-mini",
-            "o3": "o3",
-        }
 
     def get_capabilities(self, model: str) -> ModelCapabilities:
         """Get capabilities for OpenAI models."""
@@ -29,10 +21,6 @@ class OpenAIProvider(LLMProvider):
             supports_thinking=config["supports_thinking"],
             max_tokens=config["max_tokens"],
         )
-
-    def get_available_models(self) -> Dict[str, str]:
-        """Get available OpenAI models."""
-        return self._models.copy()
 
     def stream_response(
         self, messages: List[Dict[str, str]], model: str, options: ChatOptions

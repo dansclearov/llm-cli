@@ -28,6 +28,7 @@ class ChatOptions:
     enable_search: bool = False
     enable_thinking: bool = True
     show_thinking: bool = True
+    silent: bool = False  # Suppress all console output
 
 
 class LLMProvider(ABC):
@@ -43,9 +44,4 @@ class LLMProvider(ABC):
         self, messages: List[Dict[str, str]], model: str, options: ChatOptions
     ) -> Generator[StreamChunk, None, None]:
         """Stream response from the model."""
-        pass
-
-    @abstractmethod
-    def get_available_models(self) -> Dict[str, str]:
-        """Get mapping of model aliases to actual model IDs."""
         pass

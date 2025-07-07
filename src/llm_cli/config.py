@@ -13,6 +13,9 @@ from .providers.openai_provider import OpenAIProvider
 from .providers.xai_provider import XAIProvider
 from .registry import ModelRegistry
 
+# Constants
+DEFAULT_MAX_HISTORY_PAIRS = 3
+
 
 @dataclass
 class Config:
@@ -25,7 +28,7 @@ class Config:
     temp_file: str = field(
         default_factory=lambda: os.getenv("LLM_CLI_TEMP_FILE", "temp_session.json")
     )
-    max_history_pairs: int = 3
+    max_history_pairs: int = DEFAULT_MAX_HISTORY_PAIRS
 
 
 def setup_providers() -> ModelRegistry:

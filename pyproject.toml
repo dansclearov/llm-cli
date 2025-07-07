@@ -18,6 +18,9 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "gradio>=5.34.0",
     "pytest>=8.4.0",
+    "rich>=14.0.0",
+    "prompt-toolkit>=3.0.51",
+    "send2trash>=1.8.3",
 ]
 
 

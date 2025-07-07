@@ -11,10 +11,6 @@ class AnthropicProvider(LLMProvider):
 
     def __init__(self):
         self.client = Anthropic()
-        self._models = {
-            "sonnet": "claude-sonnet-4-20250514",
-            "opus": "claude-opus-4-20250514",
-        }
 
     def get_capabilities(self, model: str) -> ModelCapabilities:
         """Get capabilities for Anthropic models."""
@@ -25,10 +21,6 @@ class AnthropicProvider(LLMProvider):
             supports_thinking=config["supports_thinking"],
             max_tokens=config["max_tokens"] or 4096,  # Anthropic requires max_tokens
         )
-
-    def get_available_models(self) -> Dict[str, str]:
-        """Get available Anthropic models."""
-        return self._models.copy()
 
     def stream_response(
         self, messages: List[Dict[str, str]], model: str, options: ChatOptions
