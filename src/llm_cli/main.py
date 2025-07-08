@@ -5,10 +5,14 @@ from typing import Dict, List, Optional
 
 from colored import attr, fg
 from dotenv import load_dotenv
+from prompt_toolkit import prompt
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.key_binding import KeyBindings
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from llm_cli.chat_manager import Chat, ChatManager
 from llm_cli.config import Config, setup_providers
+from llm_cli.constants import AI_PROMPT, MESSAGES_PER_HISTORY_PAIR, MIN_MESSAGES_FOR_SMART_TITLE, USER_PROMPT
 from llm_cli.providers.base import ChatOptions
 from llm_cli.response_handler import ResponseHandler
 from llm_cli.utils import read_system_message_from_file
@@ -20,9 +24,6 @@ AI_COLOR = fg("blue") + attr("bold")
 SYSTEM_COLOR = fg("violet") + attr("bold")
 RESET_COLOR = attr("reset")
 
-# Constants
-MIN_MESSAGES_FOR_SMART_TITLE = 8
-MESSAGES_PER_HISTORY_PAIR = 2
 
 
 def print_all_messages(messages: List[Dict[str, str]]) -> None:
@@ -31,9 +32,9 @@ def print_all_messages(messages: List[Dict[str, str]]) -> None:
         if msg["role"] == "system":
             continue
 
-        role_label = "Human" if msg["role"] == "user" else "AI"
+        role_label = USER_PROMPT if msg["role"] == "user" else AI_PROMPT
         role_color = USER_COLOR if msg["role"] == "user" else AI_COLOR
-        print(f"{role_color}{role_label}: {RESET_COLOR}{msg['content']}")
+        print(f"{role_color}{role_label}{RESET_COLOR}{msg['content']}")
 
 
 class LLMClient:
@@ -99,22 +100,38 @@ class LLMClient:
 class InputHandler:
     @staticmethod
     def get_user_input() -> str:
-        """Get single or multi-line input from user."""
-        first_line = input(f"{USER_COLOR}Human:{RESET_COLOR} ").strip()
-
-        if first_line.startswith(">"):
-            print(
-                f"{USER_COLOR}Enter multi-line input"
-                f' (end with a line containing only ">>"):{RESET_COLOR}'
+        """Get user input with shift+enter for new lines."""
+        bindings = KeyBindings()
+        
+        @bindings.add('c-m')  # Enter key
+        def _(event):
+            # Submit the input
+            event.app.exit(result=event.app.current_buffer.text)
+        
+        @bindings.add('c-j')  # Ctrl+J / Shift+Enter for newline
+        def _(event):
+            # Just add a plain newline
+            event.app.current_buffer.insert_text('\n')
+            
+        @bindings.add('c-c')  # Ctrl+C
+        def _(event):
+            # Exit cleanly without greying out
+            event.app.exit(exception=KeyboardInterrupt)
+            
+        try:
+            # Get input with prompt_toolkit
+            user_input = prompt(
+                HTML(f"<ansigreen><b>{USER_PROMPT}</b></ansigreen>"),
+                multiline=True,
+                key_bindings=bindings,
+                prompt_continuation=lambda width, line_number, is_soft_wrap: "",
             )
-            lines = []
-            while True:
-                line = input()
-                if line.strip() == ">>":
-                    break
-                lines.append(line)
-            return "\n".join(lines)
-        return first_line
+            return user_input.strip()
+        except KeyboardInterrupt:
+            raise
+        except EOFError:
+            # Handle Ctrl+D
+            raise KeyboardInterrupt()
 
 
 def parse_arguments(registry) -> argparse.Namespace:
@@ -256,7 +273,7 @@ def create_new_chat(
     """
     print(
         f"Starting new {args.model} chat session. "
-        "Press Ctrl+C to exit. Use '>' for multi-line input."
+        "Press Ctrl+C to exit. Use Shift+Enter for new lines."
     )
     print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
 
@@ -375,7 +392,7 @@ def main():
             f"Continuing chat: {current_chat.metadata.title} "
             f"({current_chat.metadata.model}, {current_chat.metadata.message_count} messages)"
         )
-        print("Press Ctrl+C to exit. Use '>' for multi-line input.")
+        print("Press Ctrl+C to exit. Use Shift+Enter for new lines.")
 
     run_chat_loop(
         current_chat,

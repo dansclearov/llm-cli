@@ -84,10 +84,11 @@ class PlainTextRenderer(ResponseRenderer):
         """Initialize the response rendering."""
         if not self.options.silent:
             from colored import attr, fg
+            from llm_cli.constants import AI_PROMPT
 
             AI_COLOR = fg("blue") + attr("bold")
             RESET_COLOR = attr("reset")
-            print(f"{AI_COLOR}AI:{RESET_COLOR}", end=" ", flush=True)
+            print(f"{AI_COLOR}{AI_PROMPT}{RESET_COLOR}", end="", flush=True)
 
     def handle_chunk(self, chunk: StreamChunk) -> str:
         """Handle a single streaming chunk and return any content added."""
@@ -139,8 +140,9 @@ class StyledRenderer(ResponseRenderer):
     def start_response(self) -> None:
         """Initialize the response rendering."""
         if not self.options.silent:
+            from llm_cli.constants import AI_PROMPT
             # Print AI prefix with same color as PlainTextRenderer
-            self.console.print(Text("AI: ", style="blue bold"), end="")
+            self.console.print(Text(AI_PROMPT, style="blue bold"), end="")
 
     def handle_chunk(self, chunk: StreamChunk) -> str:
         """Handle a single streaming chunk and return any content added."""
