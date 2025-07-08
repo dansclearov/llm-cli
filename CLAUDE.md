@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Testing:**
 ```bash
-pytest                    # Run all tests
-pytest tests/test_main.py # Run specific test file
+uv run pytest                    # Run all tests
+uv run pytest tests/test_main.py # Run specific test file
 ```
 
 **Code Quality:**
@@ -35,11 +35,35 @@ pipx install --force -e . # Reinstall after changes
 
 **Running the application:**
 ```bash
-llm-cli                   # CLI interface with default settings
-llm-cli concise -m sonnet # Use specific prompt and model
+uv run llm-cli                   # CLI interface with default settings
+uv run llm-cli concise -m sonnet # Use specific prompt and model
 ```
 
-## Architecture Overview
+## Architecture Overview (Post-Refactoring)
+
+**Directory Structure:**
+```
+src/llm_cli/
+├── core/              # Core business logic
+│   ├── client.py      # LLMClient - API calls & retry logic
+│   ├── session.py     # Chat & ChatMetadata - data models
+│   └── chat_manager.py # ChatManager - CRUD operations
+├── config/            # Configuration management
+│   ├── settings.py    # Config class & provider setup
+│   └── loaders.py     # YAML model configuration loading
+├── ui/                # User interface components
+│   ├── input_handler.py # InputHandler - prompt_toolkit integration
+│   └── chat_selector.py # ChatSelector - interactive chat picker
+├── providers/         # LLM provider implementations
+├── app.py             # Main application orchestration
+├── cli.py             # Command-line argument parsing
+├── main.py            # Entry point (delegates to app.py)
+├── constants.py       # All constants & UI config
+├── exceptions.py      # Custom exception classes
+├── prompts.py         # Prompt file loading
+├── model_config.py    # Model capabilities loading
+└── registry.py        # ModelRegistry - provider management
+```
 
 **Multi-provider LLM Client:**
 Supports OpenAI, Anthropic, DeepSeek, Google Gemini, and xAI through a unified interface.
@@ -66,11 +90,11 @@ Dual-location system:
 1. User config directory (`~/.config/llm_cli/prompts/`) - takes precedence
 2. Package built-in prompts (`src/llm_cli/prompts/`)
 
-Format: `prompt_[name].txt`, loaded via `utils.py:read_system_message_from_file()`
+Format: `prompt_[name].txt`, loaded via `prompts.py:read_system_message_from_file()`
 
 **Chat Management:**
-- Rich-based interactive chat selection 
-- Automatic session persistence with metadata
+- Rich-based interactive chat selection via `ui/chat_selector.py`
+- Automatic session persistence with metadata in `core/session.py`
 - Smart title generation (triggers after 8+ messages)
 - Auto-save functionality
 
@@ -80,16 +104,18 @@ Format: `prompt_[name].txt`, loaded via `utils.py:read_system_message_from_file(
 - Rich console with `highlight=False` to prevent number styling in LLM output
 - Real-time streaming with interrupt handling
 
-**Code Organization:**
+**Key Components:**
+- `LLMClient` (core/client.py) - High-level API client with retry logic
+- `ChatManager` (core/chat_manager.py) - Session persistence & management
+- `Chat`/`ChatMetadata` (core/session.py) - Data models
+- `ChatSelector` (ui/chat_selector.py) - Interactive chat selection
+- `InputHandler` (ui/input_handler.py) - User input handling
 - `ModelRegistry` (registry.py) - Central model/provider management
-- `LLMClient` (main.py) - High-level API client with retry logic
-- `ChatManager` (chat_manager.py) - Session persistence
 - `ResponseHandler` (response_handler.py) - Streaming coordination
-- `StyledRenderer`/`PlainTextRenderer` (renderers.py) - Output formatting
 
 **Main Function Structure:**
-Broken into logical functions:
-- `parse_arguments()` - CLI parsing
+Located in `app.py`, broken into logical functions:
+- `parse_arguments()` - CLI parsing (from cli.py)
 - `setup_configuration()` - Component setup  
 - `handle_chat_selection()` - Chat loading
 - `create_new_chat()` - New session creation
@@ -97,9 +123,13 @@ Broken into logical functions:
 - `main()` - High-level orchestration
 
 **Key Constants:**
+All centralized in `constants.py`:
 - `MIN_MESSAGES_FOR_SMART_TITLE = 8`
 - `DEFAULT_PAGE_SIZE = 10` 
 - `DEFAULT_MAX_HISTORY_PAIRS = 3`
+- `USER_PROMPT = "User: "`
+- `AI_PROMPT = "AI: "`
+- UI colors and navigation keys
 
 **Common Gotchas:**
 1. Add models to `models.yaml`, not provider classes
@@ -107,10 +137,11 @@ Broken into logical functions:
 3. Default model from YAML `aliases.default`, not hardcoded
 4. Providers don't define their own models anymore
 5. Rich console has `highlight=False` to prevent auto-styling numbers
-6. `utils.py` mixes concerns (prompts + model config) - organizational debt
+6. Prompts loaded from `src/llm_cli/prompts/` directory, not a Python package
+7. Custom exceptions in `exceptions.py` for proper error handling
 
 **Quick Tests:**
 ```bash
 uv run llm-cli --help   # Smoke test
-uv run python -c "from src.llm_cli.config import setup_providers; print(list(setup_providers().get_available_models().keys()))"  # Test model loading
+uv run python -c "from src.llm_cli.config.settings import setup_providers; print(list(setup_providers().get_available_models().keys()))"  # Test model loading
 ```

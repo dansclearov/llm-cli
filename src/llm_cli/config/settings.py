@@ -6,15 +6,13 @@ from pathlib import Path
 
 from platformdirs import user_data_dir
 
-from .providers.anthropic_provider import AnthropicProvider
-from .providers.deepseek_provider import DeepSeekProvider
-from .providers.gemini_provider import GeminiProvider
-from .providers.openai_provider import OpenAIProvider
-from .providers.xai_provider import XAIProvider
-from .registry import ModelRegistry
-
-# Constants
-DEFAULT_MAX_HISTORY_PAIRS = 3
+from llm_cli.constants import DEFAULT_MAX_HISTORY_PAIRS
+from llm_cli.providers.anthropic_provider import AnthropicProvider
+from llm_cli.providers.deepseek_provider import DeepSeekProvider
+from llm_cli.providers.gemini_provider import GeminiProvider
+from llm_cli.providers.openai_provider import OpenAIProvider
+from llm_cli.providers.xai_provider import XAIProvider
+from llm_cli.registry import ModelRegistry
 
 
 @dataclass

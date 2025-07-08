@@ -1,9 +1,8 @@
-from importlib import resources
 from typing import Dict, Tuple
 
-import yaml
-
-from .providers.base import LLMProvider
+from llm_cli.config.loaders import load_models_and_aliases
+from llm_cli.exceptions import ModelNotFoundError
+from llm_cli.providers.base import LLMProvider
 
 
 class ModelRegistry:
@@ -11,9 +10,7 @@ class ModelRegistry:
 
     def __init__(self):
         self._providers: Dict[str, LLMProvider] = {}
-        self._model_map: Dict[str, Tuple[str, str]] = (
-            {}
-        )  # alias -> (provider_name, model_id)
+        self._model_map: Dict[str, Tuple[str, str]] = {}  # alias -> (provider_name, model_id)
         self._default_model: str = "gpt-4o"  # fallback default
         self._load_models_and_aliases()
 
@@ -25,7 +22,7 @@ class ModelRegistry:
         """Get the provider and model ID for a given model alias."""
         if model_alias not in self._model_map:
             available_models = list(self._model_map.keys())
-            raise ValueError(
+            raise ModelNotFoundError(
                 f"Unknown model: {model_alias}. Available models: {available_models}"
             )
 
@@ -49,39 +46,4 @@ class ModelRegistry:
 
     def _load_models_and_aliases(self) -> None:
         """Load models and aliases from models.yaml file."""
-        try:
-            with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
-                config = yaml.safe_load(f)
-
-            # Load all models from all provider sections dynamically
-            for section_name, section_data in config.items():
-                if section_name == "aliases":
-                    continue
-
-                # Each top-level section (except aliases) is a provider
-                if isinstance(section_data, dict):
-                    for model_id in section_data.keys():
-                        # Register model ID as direct alias
-                        self._model_map[model_id] = (section_name, model_id)
-
-            # Load aliases
-            aliases = config.get("aliases", {})
-
-            # Set default model
-            if "default" in aliases:
-                self._default_model = aliases["default"].split("/")[
-                    -1
-                ]  # Extract model name
-
-            # Load all aliases
-            for alias, model_spec in aliases.items():
-                if alias == "default":
-                    continue
-
-                if "/" in model_spec:
-                    provider_name, model_id = model_spec.split("/", 1)
-                    self._model_map[alias] = (provider_name, model_id)
-
-        except (FileNotFoundError, yaml.YAMLError) as e:
-            print(f"Warning: Could not load models from models.yaml: {e}")
-            # Fallback to empty model map
+        self._model_map, self._default_model = load_models_and_aliases()

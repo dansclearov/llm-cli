@@ -4,7 +4,7 @@
 # Centralized model aliases
 aliases:
   # Default model (used when no -m provided)
-  default: anthropic/claude-sonnet-4-20250514
+  default: gpt-4o
   
   # Meaningful aliases only (where alias != model name)
   sonnet: anthropic/claude-sonnet-4-20250514

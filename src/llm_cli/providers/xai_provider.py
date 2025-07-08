@@ -4,7 +4,7 @@ from typing import Dict, Generator, List
 
 import requests
 
-from ..utils import get_model_capabilities
+from llm_cli.model_config import get_model_capabilities
 from .base import ChatOptions, LLMProvider, ModelCapabilities, StreamChunk
 
 
