@@ -12,6 +12,7 @@ from llm_cli.constants import (
     DEFAULT_PAGE_SIZE,
     INITIAL_PAGE,
     INITIAL_SELECTED_INDEX,
+    MAX_TITLE_LENGTH,
     NAVIGATION_KEYS,
 )
 from llm_cli.core.session import Chat, ChatMetadata
@@ -51,7 +52,7 @@ class ChatSelector:
 
             for i, chat in enumerate(page_chats):
                 date_str = chat.updated_at.strftime("%Y-%m-%d %H:%M")
-                title = chat.title[:50] + "..." if len(chat.title) > 50 else chat.title
+                title = chat.title[:MAX_TITLE_LENGTH]
 
                 if i == selected_index:
                     # Highlighted selection

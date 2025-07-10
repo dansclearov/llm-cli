@@ -6,8 +6,10 @@ from llm_cli.constants import USER_PROMPT
 
 
 class InputHandler:
-    @staticmethod
-    def get_user_input() -> str:
+    def __init__(self, config=None):
+        self.config = config
+    
+    def get_user_input(self) -> str:
         """Get user input with shift+enter for new lines."""
         bindings = KeyBindings()
         
@@ -28,11 +30,13 @@ class InputHandler:
             
         try:
             # Get input with prompt_toolkit
+            vim_mode = self.config.vim_mode if self.config else False
             user_input = prompt(
                 HTML(f"<ansigreen><b>{USER_PROMPT}</b></ansigreen>"),
                 multiline=True,
                 key_bindings=bindings,
                 prompt_continuation=lambda width, line_number, is_soft_wrap: "",
+                vi_mode=vim_mode,
             )
             return user_input.strip()
         except KeyboardInterrupt:

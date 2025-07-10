@@ -8,6 +8,7 @@ from typing import List, Optional
 from rich.console import Console
 
 from llm_cli.config.settings import Config
+from llm_cli.constants import MAX_TITLE_LENGTH
 from llm_cli.core.session import Chat, ChatMetadata
 from llm_cli.providers.base import ChatOptions
 from llm_cli.ui.chat_selector import ChatSelector
@@ -22,34 +23,21 @@ class ChatManager:
         self.console = Console(highlight=False)
         self.chat_selector = ChatSelector(self.console)
 
-    def create_new_chat(
-        self, model: str, system_message: str, first_user_message: str = ""
-    ) -> Chat:
-        """Create a new chat session."""
+    def create_new_chat(self, model: str, system_message: str) -> Chat:
+        """Create a new empty chat session."""
         chat_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
-
-        # Generate title from first user message
-        title = self._generate_title(first_user_message)
-        preview = (
-            (first_user_message[:50] + "...")
-            if len(first_user_message) > 50
-            else first_user_message
-        )
 
         metadata = ChatMetadata(
             id=chat_id,
-            title=title,
+            title=f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}",
             created_at=datetime.now(),
             updated_at=datetime.now(),
             model=model,
             message_count=0,
-            preview=preview or "New chat",
+            preview="New chat",
         )
 
         messages = [{"role": "system", "content": system_message}]
-        if first_user_message:
-            messages.append({"role": "user", "content": first_user_message})
-
         chat = Chat(metadata=metadata, messages=messages)
         chat.save()
         return chat
@@ -100,7 +88,7 @@ class ChatManager:
             for i in range(0, min(8, len(non_system_messages)), 2):  # First 5 pairs max
                 if i < len(non_system_messages):
                     conversation_sample.append(
-                        f"Human: {non_system_messages[i]['content']}"
+                        f"User: {non_system_messages[i]['content']}"
                     )
                 if i + 1 < len(non_system_messages):
                     conversation_sample.append(
@@ -132,8 +120,8 @@ class ChatManager:
 
             # Clean up the title (remove quotes, limit length)
             new_title = new_title.strip("\"'").strip()
-            if len(new_title) > 60:
-                new_title = new_title[:57] + "..."
+            if len(new_title) > MAX_TITLE_LENGTH:
+                new_title = new_title[:MAX_TITLE_LENGTH-3] + "..."
 
             if new_title and new_title != chat.metadata.title:
                 chat.metadata.title = new_title
@@ -147,14 +135,3 @@ class ChatManager:
             chat.metadata.smart_title_generated = True
             chat.save()
 
-    def _generate_title(self, first_message: str) -> str:
-        """Generate a chat title from the first user message."""
-        if not first_message:
-            return f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-
-        # Take first 40 chars, remove newlines, clean up
-        title = first_message.replace("\n", " ").strip()[:40]
-        if len(first_message) > 40:
-            title += "..."
-
-        return title or f"Chat {datetime.now().strftime('%Y-%m-%d %H:%M')}"

@@ -7,6 +7,7 @@ from pathlib import Path
 from platformdirs import user_data_dir
 
 from llm_cli.constants import DEFAULT_MAX_HISTORY_PAIRS
+from llm_cli.config.user_config import load_user_config
 from llm_cli.providers.anthropic_provider import AnthropicProvider
 from llm_cli.providers.deepseek_provider import DeepSeekProvider
 from llm_cli.providers.gemini_provider import GeminiProvider
@@ -27,6 +28,7 @@ class Config:
         default_factory=lambda: os.getenv("LLM_CLI_TEMP_FILE", "temp_session.json")
     )
     max_history_pairs: int = DEFAULT_MAX_HISTORY_PAIRS
+    vim_mode: bool = field(default_factory=lambda: load_user_config().get("vim_mode", False))
 
 
 def setup_providers() -> ModelRegistry:
