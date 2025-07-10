@@ -4,6 +4,9 @@ from llm_cli.config.loaders import load_models_and_aliases
 from llm_cli.exceptions import ModelNotFoundError
 from llm_cli.providers.base import LLMProvider
 
+# Aliases to exclude from display models
+EXCLUDED_ALIASES = {"default"}
+
 
 class ModelRegistry:
     """Registry for managing LLM providers and their models."""
@@ -43,6 +46,34 @@ class ModelRegistry:
     def get_default_model(self) -> str:
         """Get the default model alias."""
         return self._default_model
+    
+    def get_display_models(self) -> list[str]:
+        """Get models for CLI display, preferring aliases over full names."""
+        from importlib import resources
+        import yaml
+        
+        with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
+            config = yaml.safe_load(f)
+        
+        aliases = set(config.get("aliases", {}).keys()) - EXCLUDED_ALIASES
+        all_models = set(self._model_map.keys())
+        
+        # Show aliases + models that don't have aliases
+        display_models = []
+        for model in all_models:
+            if model in aliases:
+                display_models.append(model)
+            else:
+                # Check if any alias points to this model
+                has_alias = False
+                for alias in aliases:
+                    if alias in self._model_map and self._model_map[alias] == self._model_map[model]:
+                        has_alias = True
+                        break
+                if not has_alias:
+                    display_models.append(model)
+        
+        return sorted(display_models)
 
     def _load_models_and_aliases(self) -> None:
         """Load models and aliases from models.yaml file."""

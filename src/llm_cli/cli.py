@@ -4,7 +4,7 @@ from llm_cli.registry import ModelRegistry
 
 def parse_arguments(registry: ModelRegistry) -> argparse.Namespace:
     """Parse command line arguments."""
-    available_models = list(registry.get_available_models().keys())
+    available_models = registry.get_display_models()
 
     parser = argparse.ArgumentParser(description="Run an interactive LLM chat session.")
     parser.add_argument(
@@ -49,6 +49,11 @@ def parse_arguments(registry: ModelRegistry) -> argparse.Namespace:
         "--hide-thinking",
         action="store_true",
         help="Hide thinking trace display",
+    )
+    parser.add_argument(
+        "--user-paths",
+        action="store_true",
+        help="Print all user path locations and exit",
     )
 
     return parser.parse_args()

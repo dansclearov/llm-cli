@@ -44,6 +44,9 @@ deepseek:
 xai:
   grok-3:
     supports_search: true
+    
+  grok-4:
+    supports_search: true
 
 gemini:
   gemini-2.5-pro: {}

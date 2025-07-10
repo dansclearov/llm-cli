@@ -1,15 +1,20 @@
 """Main application orchestration."""
 
+import os
 import sys
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
+from platformdirs import user_config_dir, user_data_dir
 
 from llm_cli.cli import parse_arguments
 from llm_cli.config.settings import Config, setup_providers
+from llm_cli.config.user_config import update_user_config
 from llm_cli.constants import (
     AI_COLOR,
     AI_PROMPT,
+    MAX_TITLE_LENGTH,
     MIN_MESSAGES_FOR_SMART_TITLE,
     RESET_COLOR,
     SYSTEM_COLOR,
@@ -24,6 +29,42 @@ from llm_cli.providers.base import ChatOptions
 from llm_cli.ui.input_handler import InputHandler
 
 load_dotenv()
+
+
+def print_user_paths() -> None:
+    """Print all user path locations used by the application."""
+    config_dir = Path(user_config_dir("llm_cli", ensure_exists=True))
+    data_dir = Path(user_data_dir("llm_cli", ensure_exists=True))
+    
+    # Configuration directory
+    print(f"Configuration directory: {config_dir}")
+    print(f"  - User config file: {config_dir / 'config.json'}")
+    print(f"  - User prompts: {config_dir / 'prompts'}/ (*.txt files)")
+    print(f"  - User model overrides: {config_dir / 'models.yaml'}")
+    
+    # Data directory
+    chat_dir = os.getenv("LLM_CLI_CHAT_DIR", str(data_dir / "chats"))
+    print(f"Data directory: {data_dir}")
+    print(f"  - Chat storage: {chat_dir}")
+    
+    # Environment variable overrides
+    print("\nEnvironment variable overrides:")
+    print(f"  - LLM_CLI_CHAT_DIR: {os.getenv('LLM_CLI_CHAT_DIR', 'not set')}")
+    print(f"  - LLM_CLI_TEMP_FILE: {os.getenv('LLM_CLI_TEMP_FILE', 'not set')}")
+    
+    # Show which paths currently exist
+    print("\nCurrent status:")
+    paths_to_check = [
+        config_dir,
+        config_dir / "config.json",
+        config_dir / "prompts",
+        config_dir / "models.yaml",
+        Path(chat_dir),
+    ]
+    
+    for path in paths_to_check:
+        exists = "✓" if path.exists() else "✗"
+        print(f"  {exists} {path}")
 
 
 def print_all_messages(messages: List[Dict[str, str]]) -> None:
@@ -44,7 +85,7 @@ def setup_configuration(
     config = Config()
     chat_manager = ChatManager(config)
     llm_client = LLMClient()
-    input_handler = InputHandler()
+    input_handler = InputHandler(config)
 
     # Set up chat options
     chat_options = ChatOptions(
@@ -84,35 +125,6 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
     return current_chat
 
 
-def create_new_chat(
-    args,
-    chat_manager: ChatManager,
-    input_handler: InputHandler,
-    llm_client: LLMClient,
-    prompt_str: str,
-    chat_options: ChatOptions,
-) -> Optional[Chat]:
-    """Create a new chat session."""
-    print(
-        f"Starting new {args.model} chat session. "
-        "Press Ctrl+C to exit. Use Shift+Enter for new lines."
-    )
-    print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
-
-    # Get first user message to create chat
-    try:
-        first_message = input_handler.get_user_input()
-    except KeyboardInterrupt:
-        return None
-
-    current_chat = chat_manager.create_new_chat(args.model, prompt_str, first_message)
-
-    # Process first message immediately
-    response = llm_client.chat(current_chat.messages, args.model, chat_options)
-    current_chat.messages.append({"role": "assistant", "content": response})
-    current_chat.save()
-
-    return current_chat
 
 
 def run_chat_loop(
@@ -123,11 +135,22 @@ def run_chat_loop(
     input_handler: InputHandler,
     chat_options: ChatOptions,
     prompt_str: str,
+    config: Config,
     is_new_chat: bool = False,
 ) -> None:
     """Run the main chat interaction loop."""
-    # Only show initial display for existing chats
-    if not is_new_chat:
+    # Check if this is a new chat (only has system message)
+    user_messages = [msg for msg in current_chat.messages if msg["role"] != "system"]
+    is_first_message = len(user_messages) == 0
+    
+    if is_first_message:
+        # Show welcome message for new chats
+        print(
+            f"Starting new {current_chat.metadata.model} chat session. "
+            "Press Ctrl+C to exit. Use Shift+Enter for new lines."
+        )
+        print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
+    else:
         # Show system message if different from current prompt
         system_message = next(
             (msg["content"] for msg in current_chat.messages if msg["role"] == "system"),
@@ -146,12 +169,25 @@ def run_chat_loop(
         try:
             user_input = input_handler.get_user_input()
 
+            # Handle slash commands
+            if user_input.startswith("/vim"):
+                config.vim_mode = not config.vim_mode
+                update_user_config("vim_mode", config.vim_mode)
+                continue
+
             # Process normal input
             current_chat.messages.append({"role": "user", "content": user_input})
 
             finished = False
             response = llm_client.chat(current_chat.messages, args.model, chat_options)
             current_chat.messages.append({"role": "assistant", "content": response})
+            
+            # Update title after first message
+            user_messages = [msg for msg in current_chat.messages if msg["role"] == "user"]
+            if len(user_messages) == 1 and current_chat.metadata.title.startswith("Chat "):
+                first_msg = user_messages[0]["content"]
+                current_chat.metadata.title = first_msg.replace("\n", " ").strip()[:MAX_TITLE_LENGTH]
+            
             current_chat.save()  # Auto-save after each exchange
 
             # Generate smart title once we have enough conversation (only once per chat)
@@ -180,6 +216,12 @@ def main():
     """Main entry point for the LLM CLI application."""
     registry = setup_providers()
     args = parse_arguments(registry)
+    
+    # Handle --user-paths command
+    if args.user_paths:
+        print_user_paths()
+        return
+    
     config, chat_manager, llm_client, input_handler, chat_options, prompt_str = (
         setup_configuration(args)
     )
@@ -190,11 +232,7 @@ def main():
 
     if current_chat is None:
         # Create new chat
-        current_chat = create_new_chat(
-            args, chat_manager, input_handler, llm_client, prompt_str, chat_options
-        )
-        if current_chat is None:  # User cancelled during creation
-            return
+        current_chat = chat_manager.create_new_chat(args.model, prompt_str)
         is_new_chat = True
 
     # Show continuation message for existing chats
@@ -213,6 +251,7 @@ def main():
         input_handler,
         chat_options,
         prompt_str,
+        config,
         is_new_chat,
     )
 
