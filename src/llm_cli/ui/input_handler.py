@@ -1,6 +1,7 @@
 from prompt_toolkit import prompt
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.cursor_shapes import ModalCursorShapeConfig
 
 from llm_cli.constants import USER_PROMPT
 
@@ -31,12 +32,14 @@ class InputHandler:
         try:
             # Get input with prompt_toolkit
             vim_mode = self.config.vim_mode if self.config else False
+            cursor_config = ModalCursorShapeConfig() if vim_mode else None
             user_input = prompt(
                 HTML(f"<ansigreen><b>{USER_PROMPT}</b></ansigreen>"),
                 multiline=True,
                 key_bindings=bindings,
                 prompt_continuation=lambda width, line_number, is_soft_wrap: "",
                 vi_mode=vim_mode,
+                cursor=cursor_config,
             )
             return user_input.strip()
         except KeyboardInterrupt:

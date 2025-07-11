@@ -141,7 +141,6 @@ class StyledRenderer(ResponseRenderer):
         """Initialize the response rendering."""
         if not self.options.silent:
             from llm_cli.constants import AI_PROMPT
-            # Print AI prefix with same color as PlainTextRenderer
             self.console.print(Text(AI_PROMPT, style="blue bold"), end="")
 
     def handle_chunk(self, chunk: StreamChunk) -> str:
