@@ -14,8 +14,7 @@ class LLMClient:
         self.interrupt_handler = None
 
     @retry(
-        stop=stop_after_attempt(10), 
-        wait=wait_exponential(multiplier=1, min=2, max=8)
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
     )
     def chat(
         self,

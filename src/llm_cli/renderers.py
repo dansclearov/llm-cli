@@ -165,7 +165,7 @@ class StyledRenderer(ResponseRenderer):
                 and not self.content_started
                 and not self.options.silent
             ):
-                self.console.print("\n\n", end="")  # Add spacing after thinking
+                self.console.print("\n", end="")  # Add single newline after thinking
                 self.content_started = True
 
             if not self.options.silent:

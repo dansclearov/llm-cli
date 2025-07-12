@@ -62,7 +62,7 @@ class GeminiProvider(LLMProvider):
             for line in response.iter_lines():
                 if line.startswith(b"data: "):
                     try:
-                        data = json.loads(line[6:])
+                        data = json.loads(line[6:].decode("utf-8"))
                         text = data["candidates"][0]["content"]["parts"][0]["text"]
                         yield StreamChunk(content=text)
                     except (KeyError, json.JSONDecodeError):

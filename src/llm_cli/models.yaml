@@ -12,6 +12,8 @@ aliases:
   gpt-4o: openai/chatgpt-4o-latest
   gpt-4.5: openai/gpt-4.5-preview
   r1: deepseek/deepseek-reasoner
+  r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
+  kimi: openrouter/moonshotai/kimi-k2
 
 anthropic:
   claude-sonnet-4-20250514:
@@ -52,3 +54,9 @@ gemini:
   gemini-2.5-pro: {}
     
   gemini-2.5-flash: {}
+
+openrouter:
+  "deepseek/deepseek-r1-0528:free":
+    supports_thinking: true
+    
+  moonshotai/kimi-k2: {}

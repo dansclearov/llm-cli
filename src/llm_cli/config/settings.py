@@ -12,6 +12,7 @@ from llm_cli.providers.anthropic_provider import AnthropicProvider
 from llm_cli.providers.deepseek_provider import DeepSeekProvider
 from llm_cli.providers.gemini_provider import GeminiProvider
 from llm_cli.providers.openai_provider import OpenAIProvider
+from llm_cli.providers.openrouter_provider import OpenRouterProvider
 from llm_cli.providers.xai_provider import XAIProvider
 from llm_cli.registry import ModelRegistry
 
@@ -41,5 +42,6 @@ def setup_providers() -> ModelRegistry:
     registry.register_provider("deepseek", DeepSeekProvider())
     registry.register_provider("xai", XAIProvider())
     registry.register_provider("gemini", GeminiProvider())
+    registry.register_provider("openrouter", OpenRouterProvider())
 
     return registry
