@@ -101,7 +101,7 @@ class ChatManager:
             title_prompt = [
                 {
                     "role": "system",
-                    "content": "Generate a very concise 3-7 word title for this conversation. No quotes, no punctuation, just the title.",
+                    "content": "Generate a concise 5-10 word title for this conversation. No quotes, no punctuation, just the title.",
                 },
                 {
                     "role": "user",

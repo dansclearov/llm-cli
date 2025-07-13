@@ -57,13 +57,13 @@ class ChatSelector:
                 if i == selected_index:
                     # Highlighted selection
                     output.append(
-                        f"[bright_yellow]❯ {i+1}. [{date_str}] {title:<52} "
+                        f"[bright_yellow]❯ {i+1:2}. [{date_str}] {title:<80} "
                         f"[bright_black]({chat.model}, {chat.message_count} msgs)[/bright_black][/bright_yellow]"
                     )
                 else:
                     # Normal entry
                     output.append(
-                        f"  {i+1}. [{date_str}] {title:<52} "
+                        f"  {i+1:2}. [{date_str}] {title:<80} "
                         f"[bright_black]({chat.model}, {chat.message_count} msgs)[/bright_black]"
                     )
 

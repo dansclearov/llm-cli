@@ -6,7 +6,6 @@ from typing import Optional
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Heading, Markdown
-from rich.style import Style
 from rich.text import Text
 
 from .providers.base import ChatOptions, ModelCapabilities, StreamChunk
@@ -18,19 +17,7 @@ class LeftAlignedHeading(Heading):
     def __rich_console__(self, console, options):
         text = self.text
         text.justify = "left"  # Override center alignment
-        if self.tag == "h1":
-            from rich import box
-            from rich.panel import Panel
-
-            yield Panel(
-                text,
-                box=box.HEAVY,
-                style="markdown.h1.border",
-            )
-        else:
-            if self.tag == "h2":
-                yield Text("")
-            yield text
+        yield text
 
 
 class LeftAlignedMarkdown(Markdown):
@@ -167,6 +154,7 @@ class StyledRenderer(ResponseRenderer):
             if (
                 self.thinking_started
                 and not self.content_started
+                and self.options.show_thinking
                 and not self.options.silent
             ):
                 self.console.print("\n", end="")  # Add single newline after thinking

@@ -13,12 +13,13 @@ class ResponseHandler:
     ):
         self.capabilities = capabilities
         self.options = options
+        self.renderer: ResponseRenderer
 
         # Choose renderer based on feature flag
         if USE_STYLED_RENDERER:
-            self.renderer: ResponseRenderer = StyledRenderer(capabilities, options)
+            self.renderer = StyledRenderer(capabilities, options)
         else:
-            self.renderer: ResponseRenderer = PlainTextRenderer(capabilities, options)
+            self.renderer = PlainTextRenderer(capabilities, options)
 
     def start_response(self) -> None:
         """Initialize the response rendering."""
