@@ -36,7 +36,7 @@ class LLMClient:
                 options.enable_search = False
 
             # Set up response handler
-            handler = ResponseHandler(capabilities, options, use_styled_output=True)
+            handler = ResponseHandler(capabilities, options)
             self.interrupt_handler = handler
 
             # Set up signal handler for interrupt during streaming

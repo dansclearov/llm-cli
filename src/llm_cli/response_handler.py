@@ -1,5 +1,6 @@
 from .providers.base import ChatOptions, ModelCapabilities, StreamChunk
 from .renderers import StyledRenderer, PlainTextRenderer, ResponseRenderer
+from .constants import USE_STYLED_RENDERER
 
 
 class ResponseHandler:
@@ -9,13 +10,12 @@ class ResponseHandler:
         self,
         capabilities: ModelCapabilities,
         options: ChatOptions,
-        use_styled_output: bool = False,
     ):
         self.capabilities = capabilities
         self.options = options
 
-        # Choose renderer based on flag
-        if use_styled_output:
+        # Choose renderer based on feature flag
+        if USE_STYLED_RENDERER:
             self.renderer: ResponseRenderer = StyledRenderer(capabilities, options)
         else:
             self.renderer: ResponseRenderer = PlainTextRenderer(capabilities, options)

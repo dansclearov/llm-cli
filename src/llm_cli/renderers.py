@@ -78,7 +78,11 @@ class ResponseRenderer(ABC):
 
 
 class PlainTextRenderer(ResponseRenderer):
-    """Simple print-based renderer (current implementation)."""
+    """Simple print-based renderer.
+    
+    LEGACY: Kept for rollback purposes only - do not extend.
+    Use StyledRenderer instead for new features.
+    """
 
     def start_response(self) -> None:
         """Initialize the response rendering."""
