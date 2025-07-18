@@ -186,7 +186,7 @@ def run_chat_loop(
             user_messages = [msg for msg in current_chat.messages if msg["role"] == "user"]
             if len(user_messages) == 1 and current_chat.metadata.title.startswith("Chat "):
                 first_msg = user_messages[0]["content"]
-                current_chat.metadata.title = first_msg.replace("\n", " ").strip()[:MAX_TITLE_LENGTH]
+                current_chat.metadata.title = first_msg.replace("\n", " ").strip()[:MAX_TITLE_LENGTH + 1]
             
             current_chat.save()  # Auto-save after each exchange
 

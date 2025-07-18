@@ -52,7 +52,7 @@ class ChatSelector:
 
             for i, chat in enumerate(page_chats):
                 date_str = chat.updated_at.strftime("%Y-%m-%d %H:%M")
-                title = chat.title[:MAX_TITLE_LENGTH]
+                title = chat.title[:MAX_TITLE_LENGTH] + "..." if len(chat.title) > MAX_TITLE_LENGTH else chat.title
 
                 if i == selected_index:
                     # Highlighted selection
