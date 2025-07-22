@@ -52,4 +52,5 @@ def get_model_capabilities(provider_name: str, model_id: str) -> Dict[str, Any]:
         "supports_search": model_config.get("supports_search", False),
         "supports_thinking": model_config.get("supports_thinking", False),
         "max_tokens": model_config.get("max_tokens", None),
+        "extra_params": model_config.get("extra_params", {}),
     }

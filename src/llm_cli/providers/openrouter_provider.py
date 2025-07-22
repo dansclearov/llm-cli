@@ -31,7 +31,8 @@ class OpenRouterProvider(LLMProvider):
     ) -> Generator[StreamChunk, None, None]:
         """Stream response from OpenRouter API."""
         try:
-            # Check if model supports thinking for reasoning parameter
+            # Get model configuration for capabilities and extra params
+            config = get_model_capabilities("openrouter", model)
             capabilities = self.get_capabilities(model)
             
             payload = {
@@ -43,6 +44,11 @@ class OpenRouterProvider(LLMProvider):
             # Add reasoning parameter for models that support thinking
             if capabilities.supports_thinking:
                 payload["reasoning"] = {"effort": "high", "exclude": False}
+            
+            # Merge any extra_params from model configuration
+            extra_params = config.get("extra_params", {})
+            if extra_params:
+                payload.update(extra_params)
 
             response = requests.post(
                 f"{self.base_url}/chat/completions",

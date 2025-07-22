@@ -53,11 +53,20 @@ gemini:
     
   gemini-2.5-flash: {}
 
+# OpenRouter quantization configuration (YAML anchor for reuse)
+_openrouter_min_fp8: &openrouter_min_fp8
+  provider:
+    quantizations: ["fp8", "fp16", "bf16", "fp32", "unknown"]
+
 openrouter:
   "deepseek/deepseek-r1-0528:free":
     supports_thinking: true
+    extra_params:
+      <<: *openrouter_min_fp8
     
-  moonshotai/kimi-k2: {}
+  moonshotai/kimi-k2:
+    extra_params:
+      <<: *openrouter_min_fp8
     
   x-ai/grok-4: {}
     # TODO: implement search for openrouter
