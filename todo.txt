@@ -1,4 +1,5 @@
 - /cost command that shows cost and token count for current conversation
+- mention other models with @model_name for them add to the current convo (idk how to do properly yet)
 - tree history like in chatgpt?
 - file upload with <...> syntax, manual (autocomplete?) and on ctrl+v?
 - nvim plugin, the plugin functionality could allow navigating the tree history

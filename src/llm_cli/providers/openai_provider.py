@@ -25,21 +25,45 @@ class OpenAIProvider(LLMProvider):
     def stream_response(
         self, messages: List[Dict[str, str]], model: str, options: ChatOptions
     ) -> Generator[StreamChunk, None, None]:
-        """Stream response from OpenAI API."""
+        """Stream response from OpenAI API using responses.create."""
         try:
-            completion = self.client.chat.completions.create(
-                model=model, messages=messages, stream=True
-            )
+            # Check if this is a reasoning model
+            capabilities = self.get_capabilities(model)
+            
+            if capabilities.supports_thinking:
+                # Use responses.create API with reasoning summaries
+                response = self.client.responses.create(
+                    model=model,
+                    input=messages,
+                    stream=True,
+                    reasoning={
+                        "summary": "auto"
+                    }
+                )
+            else:
+                # Use responses.create API without reasoning
+                response = self.client.responses.create(
+                    model=model,
+                    input=messages,
+                    stream=True
+                )
 
-            for chunk in completion:
-                delta = chunk.choices[0].delta
-
-                # Handle regular content
-                if delta.content:
-                    yield StreamChunk(content=delta.content)
-
-                # Note: OpenAI o1 models don't currently expose reasoning in the API
-                # If they add this in the future, we'd handle it here
+            for chunk in response:
+                event_type = getattr(chunk, 'type', 'unknown')
+                
+                # Handle reasoning content
+                if event_type == 'response.reasoning_summary_text.delta':
+                    if hasattr(chunk, 'delta') and chunk.delta:
+                        yield StreamChunk(thinking=chunk.delta)
+                
+                # Handle regular message content
+                elif event_type == 'response.output_text.delta':
+                    if hasattr(chunk, 'delta') and chunk.delta:
+                        yield StreamChunk(content=chunk.delta)
+                
+                # Stop at completion
+                elif event_type == 'response.completed':
+                    break
 
         except Exception as e:
             # Let the error propagate - main.py will handle retries
