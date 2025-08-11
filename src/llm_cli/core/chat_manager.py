@@ -39,7 +39,7 @@ class ChatManager:
 
         messages = [{"role": "system", "content": system_message}]
         chat = Chat(metadata=metadata, messages=messages)
-        chat.save()
+        # Don't save empty chats - they'll be saved when first message is added
         return chat
 
     def list_chats(self) -> List[ChatMetadata]:

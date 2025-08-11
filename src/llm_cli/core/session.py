@@ -63,8 +63,15 @@ class Chat:
         config = Config()
         return Path(config.chat_dir) / self.metadata.id
 
+    def should_be_saved(self) -> bool:
+        """Check if chat should be saved (has non-system messages)."""
+        return len([m for m in self.messages if m["role"] != "system"]) > 0
+
     def save(self) -> None:
-        """Save chat to disk."""
+        """Save chat to disk only if it has non-system messages."""
+        if not self.should_be_saved():
+            return
+            
         chat_dir = self.chat_dir
         chat_dir.mkdir(parents=True, exist_ok=True)
 
