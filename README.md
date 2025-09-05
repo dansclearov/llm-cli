@@ -138,7 +138,7 @@ llm-cli -r chat_20240622_143022_a1b2c3d4
 Usage: llm-cli [prompt] [options]
 
 Arguments:
-  prompt                System prompt name (default: general)
+  prompt               System prompt name (default: general)
 
 Options:
   -m, --model          Model to use (default from config)
@@ -163,10 +163,10 @@ Options:
 #### Chat Selector Navigation
 ```
 ↑/↓, k/j, Ctrl+P/N    Navigate conversations
-Enter                  Select conversation
+Enter                 Select conversation
 n/p, Ctrl+L/H         Next/previous page
-dd                     Delete conversation (double-tap)
-q, Ctrl+C            Quit selector
+dd                    Delete conversation (double-tap)
+q, Ctrl+C             Quit selector
 ```
 
 ## 📁 Supported Providers
