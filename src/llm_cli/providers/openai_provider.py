@@ -30,7 +30,7 @@ class OpenAIProvider(LLMProvider):
             # Check if this is a reasoning model
             capabilities = self.get_capabilities(model)
             
-            if capabilities.supports_thinking:
+            if capabilities.supports_thinking and options.enable_thinking:
                 # Use responses.create API with reasoning summaries
                 response = self.client.responses.create(
                     model=model,

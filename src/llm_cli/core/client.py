@@ -3,14 +3,15 @@ from typing import Dict, List, Optional
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from llm_cli.config.settings import setup_providers
+from llm_cli.exceptions import AuthenticationError
 from llm_cli.providers.base import ChatOptions
+from llm_cli.registry import ModelRegistry
 from llm_cli.response_handler import ResponseHandler
 
 
 class LLMClient:
-    def __init__(self):
-        self.registry = setup_providers()
+    def __init__(self, registry: ModelRegistry):
+        self.registry = registry
         self.interrupt_handler = None
 
     @retry(

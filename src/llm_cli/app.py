@@ -50,7 +50,6 @@ def print_user_paths() -> None:
     # Environment variable overrides
     print("\nEnvironment variable overrides:")
     print(f"  - LLM_CLI_CHAT_DIR: {os.getenv('LLM_CLI_CHAT_DIR', 'not set')}")
-    print(f"  - LLM_CLI_TEMP_FILE: {os.getenv('LLM_CLI_TEMP_FILE', 'not set')}")
     
     # Show which paths currently exist
     print("\nCurrent status:")
@@ -79,19 +78,19 @@ def print_all_messages(messages: List[Dict[str, str]]) -> None:
 
 
 def setup_configuration(
-    args,
+    args, registry
 ) -> tuple[Config, ChatManager, LLMClient, InputHandler, ChatOptions, str]:
     """Set up configuration and components."""
     config = Config()
     chat_manager = ChatManager(config)
-    llm_client = LLMClient()
+    llm_client = LLMClient(registry)
     input_handler = InputHandler(config)
 
     # Set up chat options
     chat_options = ChatOptions(
         enable_search=args.search,
-        enable_thinking=args.thinking,
-        show_thinking=not args.hide_thinking,
+        enable_thinking=not args.no_thinking,
+        show_thinking=not args.no_thinking and not args.hide_thinking,
     )
 
     prompt_str = read_system_message_from_file("prompt_" + args.prompt + ".txt")
@@ -223,7 +222,7 @@ def main():
         return
     
     config, chat_manager, llm_client, input_handler, chat_options, prompt_str = (
-        setup_configuration(args)
+        setup_configuration(args, registry)
     )
 
     # Handle chat selection/loading

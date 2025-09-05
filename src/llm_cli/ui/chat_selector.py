@@ -1,4 +1,12 @@
-"""Interactive chat selection UI."""
+"""Interactive chat selection UI.
+
+This module provides cross-platform keyboard input handling:
+- Windows: NOT SUPPORTED - uses termios/tty which are Unix-only
+- Unix/Linux/macOS: Uses termios/tty for raw terminal input
+- Rich console output works consistently across all platforms
+
+TODO: Add Windows support using msvcrt for raw input handling.
+"""
 
 import sys
 import termios

@@ -12,9 +12,9 @@ uv run pytest tests/test_main.py # Run specific test file
 
 **Code Quality:**
 ```bash
-black .                   # Format code
-isort .                   # Sort imports
-mypy .                    # Type checking
+uv run black .            # Format code
+uv run isort .            # Sort imports
+uv run mypy .             # Type checking
 ```
 
 **Installation & Setup:**
@@ -50,7 +50,8 @@ src/llm_cli/
 │   └── chat_manager.py # ChatManager - CRUD operations
 ├── config/            # Configuration management
 │   ├── settings.py    # Config class & provider setup
-│   └── loaders.py     # YAML model configuration loading
+│   ├── loaders.py     # YAML model configuration loading
+│   └── user_config.py # User configuration management
 ├── ui/                # User interface components
 │   ├── input_handler.py # InputHandler - prompt_toolkit integration
 │   └── chat_selector.py # ChatSelector - interactive chat picker
@@ -62,7 +63,9 @@ src/llm_cli/
 ├── exceptions.py      # Custom exception classes
 ├── prompts.py         # Prompt file loading
 ├── model_config.py    # Model capabilities loading
-└── registry.py        # ModelRegistry - provider management
+├── registry.py        # ModelRegistry - provider management
+├── renderers.py       # Response rendering (PlainTextRenderer, StyledRenderer)
+└── convert.py         # Chat format conversion utilities
 ```
 
 **Multi-provider LLM Client:**

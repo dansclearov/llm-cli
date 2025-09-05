@@ -29,3 +29,8 @@ class ConfigurationError(LLMCLIException):
 class ProviderError(LLMCLIException):
     """Raised when there's a provider-specific error."""
     pass
+
+
+class AuthenticationError(LLMCLIException):
+    """Raised when API authentication fails (missing or invalid API key)."""
+    pass

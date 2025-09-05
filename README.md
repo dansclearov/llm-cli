@@ -1,208 +1,277 @@
 # LLM-CLI
 
-A multi-provider command-line interface for interacting with large language models (LLMs) like GPT-4o, Claude 4, DeepSeek, Gemini, and Grok.
+A multi-provider command-line interface for interacting with large language models. Features rich terminal UI, comprehensive chat management, and unified streaming responses across providers.
 
-## Features
+![Demo](demo.gif)
 
-- **Multi-provider support**: OpenAI, Anthropic, DeepSeek, xAI (Grok), Google Gemini
-- **Centralized model management**: All models and aliases configured in YAML
-- **Interactive chat management**: Browse, resume, and continue previous conversations
-- **Real-time streaming**: Live response display with thinking traces (DeepSeek)
-- **Customizable prompts**: User-specific prompt overrides
-- **Session persistence**: Automatic chat saving with smart titles
-- **Model capabilities**: Per-model search and thinking mode support
-- **Flexible configuration**: User-configurable defaults and model aliases
+## ✨ Features
 
-## Supported Models
+- **Multi-provider support**: OpenAI, Anthropic, DeepSeek, xAI, Gemini, OpenRouter
+- **Advanced reasoning models**: Supports OpenAI o-series, DeepSeek R1  
+- **Rich terminal UI**: Styled output, interactive chat selection, vim mode support
+- **Intelligent chat management**: Auto-save, smart titles, resume/continue conversations
+- **Real-time streaming**: Live responses with provider-specific capabilities
+- **Centralized configuration**: YAML-based model management with user overrides
+- **Flexible prompts**: User-customizable system prompts with dual-location loading
 
-- **OpenAI**: GPT-4o, GPT-4.5, GPT-4 Turbo, o4-mini, o3
-- **Anthropic**: Claude Sonnet 4, Claude Opus 4  
-- **DeepSeek**: DeepSeek Reasoner (with reasoning traces)
-- **xAI**: Grok 3 (with search capabilities)
-- **Google**: Gemini 2.5 Pro, Gemini 2.5 Flash
+## 🚀 Quick Start
 
-## Installation
-
-### Using uv (recommended)
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/dansclearov/llm-cli.git
-   cd llm-cli
-   ```
-
-2. Install dependencies:
-   ```bash
-   uv install
-   ```
-
-### Global Installation with pipx
-
-Install directly from GitHub:
 ```bash
-pipx install git+https://github.com/dansclearov/llm-cli.git
+# Install from GitHub
+uv tool install git+https://github.com/dansclearov/llm-cli.git
+
+# Set up API keys (add to ~/.zshrc or ~/.bashrc)
+export OPENAI_API_KEY=your_openai_api_key
+export ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# Start chatting
+llm-cli
+llm-cli concise -m sonnet
 ```
 
-Or install from local copy:
+**Or for local development:**
+
 ```bash
+# Clone and install locally
+git clone https://github.com/dansclearov/llm-cli.git
 cd llm-cli
-pipx install -e .
-# Update after changes:
-pipx install --force -e .
+cp .env.example .env  # Edit with your API keys
+uv tool install -e .
 ```
 
-## Configuration
+## 🔧 Configuration
 
 ### API Keys
 
-Create a `.env` file in the root directory:
+Set up your API keys in environment variables or `.env` file:
+
 ```env
 OPENAI_API_KEY=your_openai_api_key
-ANTHROPIC_API_KEY=your_anthropic_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key  
 DEEPSEEK_API_KEY=your_deepseek_api_key
 XAI_API_KEY=your_xai_api_key
 GEMINI_API_KEY=your_gemini_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
 ### Model Configuration
 
-Models and aliases are configured in `src/llm_cli/models.yaml`:
+Models are centrally configured in `src/llm_cli/models.yaml` with user overrides at `~/.config/llm_cli/models.yaml`:
 
 ```yaml
 aliases:
-  # Default model (used when no -m provided)
-  default: anthropic/claude-sonnet-4-20250514
-  
-  # Custom aliases
+  default: gpt-4o
   sonnet: anthropic/claude-sonnet-4-20250514
-  opus: anthropic/claude-opus-4-20250514
+  opus: anthropic/claude-opus-4-1-20250805
   gpt-4o: openai/chatgpt-4o-latest
-  gpt-4.5: openai/gpt-4.5-preview
   r1: deepseek/deepseek-reasoner
+  r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
+  kimi: openrouter/moonshotai/kimi-k2
+  grok-4: openrouter/x-ai/grok-4
 
-# Model capabilities and settings
 anthropic:
   claude-sonnet-4-20250514:
     supports_search: false
     supports_thinking: false
     max_tokens: 8192
-  # ... more models
+
+openai:
+  gpt-5:
+    supports_thinking: true
+
+openrouter:
+  "deepseek/deepseek-r1-0528:free":
+    supports_thinking: true
+    extra_params:
+      provider:
+        quantizations: ["fp8", "fp16", "bf16", "fp32"]
 ```
 
-You can override this with a user config file at `~/.config/llm_cli/models.yaml`.
+### Configuration Locations
 
-### Chat Storage
+View all configuration paths:
+```bash
+llm-cli --user-paths
+```
 
-Chat histories are stored in:
-- **Linux**: `~/.local/share/llm_cli/chats/`
-- **macOS**: `~/Library/Application Support/llm_cli/chats/`
-- **Windows**: `C:\Users\<username>\AppData\Local\llm_cli\chats\`
+**Standard paths:**
+- **Linux**: `~/.config/llm_cli/` (config), `~/.local/share/llm_cli/chats/` (data)
+- **macOS**: `~/Library/Application Support/llm_cli/`
+- **Windows**: `C:\Users\<username>\AppData\Local\llm_cli\`
 
-Override with `LLM_CLI_CHAT_DIR` environment variable.
+**Environment overrides:**
+- `LLM_CLI_CHAT_DIR`: Custom chat storage directory
 
-## Usage
+## 💬 Usage
 
-### Basic Usage
+### Basic Commands
 
 ```bash
-# Use default model and prompt
+# Start new chat with defaults
 llm-cli
 
-# Specify model and prompt
+# Use specific prompt and model
 llm-cli concise -m sonnet
 
-# Use model alias
-llm-cli -m gpt-4o
-
-# Enable search (if supported)
-llm-cli --search -m grok-3
-
-# Enable thinking mode with reasoning traces
-llm-cli --thinking -m r1
+# Enable model-specific features
+llm-cli --search -m grok-4           # Search capability
+llm-cli --no-thinking -m r1          # Disable thinking mode
+llm-cli --hide-thinking -m r1        # Hide thinking display
 ```
 
 ### Chat Management
 
 ```bash
-# Resume last chat
+# Continue last chat
 llm-cli -c
 
-# Show chat selector
+# Interactive chat selector
 llm-cli -r
 
-# Resume specific chat by ID
+# Resume specific chat
 llm-cli -r chat_20240622_143022_a1b2c3d4
 ```
 
-### Available Options
+### Complete Options
 
 ```
-llm-cli [prompt] [options]
+Usage: llm-cli [prompt] [options]
 
 Arguments:
-  prompt              System prompt name (default: general)
+  prompt                System prompt name (default: general)
 
 Options:
-  -m, --model         Model to use (default from config)
-  -r, --resume        Resume chat (with ID or show selector)
-  -c, --continue      Continue most recent chat
-  --search            Enable search (if supported)
-  --thinking          Enable thinking mode (default: true)
-  --hide-thinking     Hide thinking trace display
+  -m, --model          Model to use (default from config)
+  -r, --resume [ID]    Resume chat (with ID or show selector)  
+  -c, --continue       Continue most recent chat
+  --search             Enable search (if supported)
+  --no-thinking        Disable thinking mode completely
+  --hide-thinking      Hide thinking trace display
+  --user-paths         Show all configuration paths and exit
+  -h, --help           Show this help message
 ```
 
 ### Input Methods
 
-- **Single line**: Type normally and press Enter
-- **Multi-line**: Type `>` and press Enter, then type multiple lines, end with `>>`
+- **Single line**: Type and press Enter
+- **Multi-line**: Use `Shift+Enter` for newlines, Enter to submit
+- **Vim mode**: Type `/vim` in chat to toggle vim keybindings
+- **Interrupt**: `Ctrl+C` gracefully stops generation
 
 ### Interactive Features
 
-- **Auto-save**: Chats save automatically after each exchange
-- **Smart titles**: Automatically generated based on conversation content
-- **Streaming output**: Real-time response display as models generate
-- **Thinking traces**: Styled reasoning process display for supported models
-- **Interrupt handling**: Ctrl+C gracefully stops generation
+#### Chat Selector Navigation
+```
+↑/↓, k/j, Ctrl+P/N    Navigate conversations
+Enter                  Select conversation
+n/p, Ctrl+L/H         Next/previous page
+dd                     Delete conversation (double-tap)
+q, Ctrl+C            Quit selector
+```
 
-## Prompts
+## 📁 Supported Providers
 
-Prompts are loaded from:
-1. **User config**: `~/.config/llm_cli/prompts/` (takes precedence)
-2. **Built-in**: Package prompts directory
+**Default models included:**
+- **OpenAI**: GPT-4o, GPT-4.5, o-series
+- **Anthropic**: Claude 4 Sonnet/Opus
+- **DeepSeek**: R1
+- **xAI**: Grok models via official API
+- **Gemini**: Google's latest Pro/Flash models  
+- **OpenRouter**: Access to 200+ models with flexible parameter control
 
-Create custom prompts as `prompt_[name].txt`:
-- `prompt_general.txt` → `llm-cli general`
-- `prompt_concise.txt` → `llm-cli concise`
-- `prompt_coding.txt` → `llm-cli coding`
+*Add any model from these providers via `models.yaml` configuration.*
 
-## Development
+## 🎨 Prompts
+
+Create custom system prompts in `~/.config/llm_cli/prompts/`:
+
+```bash
+# Built-in prompts
+prompt_general.txt     # Default comprehensive assistant
+prompt_concise.txt     # Brief, direct responses  
+prompt_empty.txt       # Minimal system message
+
+# Custom prompts
+prompt_coding.txt → llm-cli coding
+prompt_creative.txt → llm-cli creative
+```
+
+Prompts load from:
+1. **User config** (`~/.config/llm_cli/prompts/`) - takes precedence
+2. **Package built-ins** (`src/llm_cli/prompts/`)
+
+## 🧪 Development
 
 ### Setup
+
 ```bash
+# Install with dev dependencies
 uv install --group dev
+
+# Run application
+uv run llm-cli
 ```
 
 ### Code Quality
-```bash
-# Format code
-black .
-isort .
 
-# Type checking
-mypy .
+```bash
+# Format and lint
+uv run black .
+uv run isort .
+uv run mypy .
 
 # Run tests
-pytest
+uv run pytest
 ```
 
-### Architecture
+## 🤝 Contributing
 
-- **Provider system**: Unified interface for all LLM APIs
-- **Model registry**: YAML-based configuration and discovery
-- **Chat management**: Rich interactive session handling
-- **Streaming**: Real-time response display with provider-specific features
-- **Configuration**: Dual-location config system (user + package)
+1. Fork the repository
+2. Create a feature branch
+3. Make changes with tests
+4. Run quality checks: `uv run black . && uv run mypy . && uv run pytest`
+5. Submit a pull request
 
-## License
+## 🏗️ Architecture
 
-MIT License - see LICENSE file for details.
+### Core Design
+
+```
+src/llm_cli/
+├── core/              # Business logic
+│   ├── client.py      # LLMClient - API coordination & retry
+│   ├── session.py     # Chat/ChatMetadata - data models  
+│   └── chat_manager.py # ChatManager - CRUD operations
+├── config/            # Configuration management
+│   ├── settings.py    # Config class & provider setup
+│   ├── loaders.py     # YAML model configuration
+│   └── user_config.py # User preference management
+├── ui/                # User interface
+│   ├── input_handler.py # InputHandler - prompt_toolkit
+│   └── chat_selector.py # ChatSelector - interactive picker
+├── providers/         # LLM provider implementations
+├── renderers.py       # Response rendering (Plain/Styled)
+├── registry.py        # ModelRegistry - provider management
+└── response_handler.py # Streaming coordination
+```
+
+### Key Patterns
+
+- **Provider Pattern**: Unified `LLMProvider` interface for all APIs
+- **Registry Pattern**: Centralized model/provider management
+- **Strategy Pattern**: Pluggable renderers and configurations
+- **Observer Pattern**: Streaming response handling
+
+### Provider Architecture
+
+Each provider implements:
+- `get_capabilities(model)` → Model feature detection
+- `stream_response(messages, model, options)` → Unified streaming
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+**Pro tip**: Use `llm-cli --user-paths` to see all configuration locations, and customize your models in `~/.config/llm_cli/models.yaml` for personalized models, aliases and defaults.

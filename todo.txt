@@ -4,7 +4,10 @@
 - file upload with <...> syntax, manual (autocomplete?) and on ctrl+v?
 - nvim plugin, the plugin functionality could allow navigating the tree history
 - vhs demo
-- textual?
+- login with anthropic plan
+- image pasting
+- document title model small cost
+- document the cli being tested only on linux
 
 Glossary:
 ? -> if possible

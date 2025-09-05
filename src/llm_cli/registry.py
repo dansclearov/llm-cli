@@ -49,11 +49,24 @@ class ModelRegistry:
     
     def get_display_models(self) -> list[str]:
         """Get models for CLI display, preferring aliases over full names."""
+        # Use the merged config that includes user-defined aliases
+        _, _ = load_models_and_aliases()
         from importlib import resources
+        from pathlib import Path
         import yaml
+        from platformdirs import user_config_dir
         
+        # Load package models.yaml
         with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
             config = yaml.safe_load(f)
+        
+        # Load user models.yaml if it exists and merge
+        user_config_path = Path(user_config_dir("llm_cli")) / "models.yaml"
+        if user_config_path.exists():
+            with open(user_config_path, "r") as f:
+                user_config = yaml.safe_load(f) or {}
+                if "aliases" in user_config:
+                    config["aliases"] = user_config["aliases"]
         
         aliases = set(config.get("aliases", {}).keys()) - EXCLUDED_ALIASES
         all_models = set(self._model_map.keys())

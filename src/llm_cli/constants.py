@@ -14,8 +14,6 @@ AI_PROMPT = "AI: "
 
 # Chat constants
 MIN_MESSAGES_FOR_SMART_TITLE = 8
-MESSAGES_PER_HISTORY_PAIR = 2
-DEFAULT_MAX_HISTORY_PAIRS = 3
 MAX_TITLE_LENGTH = 75
 
 # UI Navigation
@@ -25,6 +23,9 @@ INITIAL_SELECTED_INDEX = 0
 
 # Renderer Settings
 USE_STYLED_RENDERER = True  # Set to False to use legacy PlainTextRenderer
+
+# Model Configuration
+DEFAULT_FALLBACK_MODEL = "gpt-4o"
 
 # Interaction Keys
 NAVIGATION_KEYS = {

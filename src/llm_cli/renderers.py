@@ -6,6 +6,7 @@ from typing import Optional
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Heading, Markdown
+from rich.markup import escape
 from rich.text import Text
 
 from .providers.base import ChatOptions, ModelCapabilities, StreamChunk
@@ -142,7 +143,7 @@ class StyledRenderer(ResponseRenderer):
         if chunk.thinking and self.capabilities.supports_thinking:
             if self.options.show_thinking and not self.options.silent:
                 self.console.print(
-                    f"[bright_black italic]{chunk.thinking}[/bright_black italic]",
+                    f"[bright_black italic]{escape(chunk.thinking)}[/bright_black italic]",
                     end="",
                 )
                 if not self.thinking_started:
@@ -161,7 +162,7 @@ class StyledRenderer(ResponseRenderer):
                 self.content_started = True
 
             if not self.options.silent:
-                self.console.print(chunk.content, end="")
+                self.console.print(escape(chunk.content), end="")
             content_added = chunk.content
             self.response_content += chunk.content
 

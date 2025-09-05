@@ -40,10 +40,9 @@ def parse_arguments(registry: ModelRegistry) -> argparse.Namespace:
         help="Enable search (if supported by model)",
     )
     parser.add_argument(
-        "--thinking",
+        "--no-thinking",
         action="store_true",
-        default=True,
-        help="Enable thinking mode (if supported by model)",
+        help="Disable thinking mode completely",
     )
     parser.add_argument(
         "--hide-thinking",

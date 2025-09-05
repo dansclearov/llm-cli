@@ -11,7 +11,7 @@ class InputHandler:
         self.config = config
     
     def get_user_input(self) -> str:
-        """Get user input with shift+enter for new lines."""
+        """Get user input with Shift+Enter (or Ctrl+J) for new lines."""
         bindings = KeyBindings()
         
         @bindings.add('c-m')  # Enter key
@@ -19,9 +19,10 @@ class InputHandler:
             # Submit the input
             event.app.exit(result=event.app.current_buffer.text)
         
-        @bindings.add('c-j')  # Ctrl+J / Shift+Enter for newline
+        @bindings.add('c-j')  # Ctrl+J acts as Shift+Enter for newline
         def _(event):
-            # Just add a plain newline
+            # Ctrl+J sends ASCII 0x0A (LF), same as Shift+Enter in most terminals
+            # This provides a portable way to insert newlines across Unix/Linux/macOS
             event.app.current_buffer.insert_text('\n')
             
         @bindings.add('c-c')  # Ctrl+C

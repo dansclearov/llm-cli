@@ -42,7 +42,7 @@ class OpenRouterProvider(LLMProvider):
             }
 
             # Add reasoning parameter for models that support thinking
-            if capabilities.supports_thinking:
+            if capabilities.supports_thinking and options.enable_thinking:
                 payload["reasoning"] = {"effort": "high", "exclude": False}
             
             # Merge any extra_params from model configuration

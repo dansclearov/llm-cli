@@ -13,8 +13,8 @@ aliases:
   gpt-4.5: openai/gpt-4.5-preview
   r1: deepseek/deepseek-reasoner
   r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
-  kimi: openrouter/moonshotai/kimi-k2
-  grok-4: openrouter/x-ai/grok-4
+  kimi: openrouter/moonshotai/kimi-k2-0905
+  qwen3-max: openrouter/qwen/qwen3-max
 
 anthropic:
   claude-sonnet-4-20250514:
@@ -48,7 +48,7 @@ deepseek:
     supports_thinking: true
 
 xai:
-  grok-3:
+  grok-4:
     supports_search: true
 
 gemini:
@@ -61,16 +61,18 @@ _openrouter_min_fp8: &openrouter_min_fp8
   provider:
     quantizations: ["fp8", "fp16", "bf16", "fp32", "unknown"]
 
+# TODO: implement search for openrouter
 openrouter:
   "deepseek/deepseek-r1-0528:free":
     supports_thinking: true
     extra_params:
       <<: *openrouter_min_fp8
     
-  moonshotai/kimi-k2:
+  moonshotai/kimi-k2-0905:
     extra_params:
       <<: *openrouter_min_fp8
-    
-  x-ai/grok-4: {}
-    # TODO: implement search for openrouter
-    # supports_search: true
+
+  qwen/qwen3-max:
+    extra_params:
+      <<: *openrouter_min_fp8
+
