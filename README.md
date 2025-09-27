@@ -172,7 +172,7 @@ q, Ctrl+C             Quit selector
 ## 📁 Supported Providers
 
 **Default models included:**
-- **OpenAI**: GPT-4o, GPT-4.5, o-series
+- **OpenAI**: GPT-5, GPT-4o, o-series
 - **Anthropic**: Claude 4 Sonnet/Opus
 - **DeepSeek**: R1
 - **xAI**: Grok models via official API
@@ -180,6 +180,17 @@ q, Ctrl+C             Quit selector
 - **OpenRouter**: Access to 200+ models with flexible parameter control
 
 *Add any model from these providers via `models.yaml` configuration.*
+
+### Capability Matrix
+
+| Provider | Streaming | Thinking Trace Output | Web Search |
+| --- | --- | --- | --- |
+| OpenAI | ✅ | ✅ (`gpt-5`, `o4-mini`, `o3`) | ❌ |
+| Anthropic | ✅ | ❌ | ❌ |
+| DeepSeek | ✅ | ✅ (`deepseek-reasoner`) | ❌ |
+| xAI | ✅ | ❌ | ✅ (`grok-3`) |
+| Gemini | ✅ | ❌ | ❌ |
+| OpenRouter | ✅ | ✅ (model dependent) | ❌ |
 
 ## 🎨 Prompts
 
@@ -208,6 +219,9 @@ Prompts load from:
 # Install with dev dependencies
 uv install --group dev
 
+# Set up pre-commit hooks
+uv run pre-commit install
+
 # Run application
 uv run llm-cli
 ```
@@ -215,10 +229,8 @@ uv run llm-cli
 ### Code Quality
 
 ```bash
-# Format and lint
-uv run black .
-uv run isort .
-uv run mypy .
+# Type checking
+uv run ty check
 
 # Run tests
 uv run pytest
@@ -229,7 +241,7 @@ uv run pytest
 1. Fork the repository
 2. Create a feature branch
 3. Make changes with tests
-4. Run quality checks: `uv run black . && uv run mypy . && uv run pytest`
+4. Run quality checks: `uv run ty check && uv run pytest`
 5. Submit a pull request
 
 ## 🏗️ Architecture

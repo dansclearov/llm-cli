@@ -21,7 +21,12 @@ def read_system_message_from_file(file_name: str) -> str:
 
     # Fall back to package prompts
     try:
-        with resources.files("llm_cli").joinpath("prompts").joinpath(file_name).open("r") as file:
+        with (
+            resources.files("llm_cli")
+            .joinpath("prompts")
+            .joinpath(file_name)
+            .open("r") as file
+        ):
             return file.read()
     except FileNotFoundError:
         raise PromptNotFoundError(

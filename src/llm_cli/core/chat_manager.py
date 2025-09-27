@@ -55,6 +55,7 @@ class ChatManager:
                     metadata_file = chat_folder / "metadata.json"
                     if metadata_file.exists():
                         import json
+
                         with open(metadata_file, "r") as f:
                             metadata = ChatMetadata.from_dict(json.load(f))
                             chats.append(metadata)
@@ -121,7 +122,7 @@ class ChatManager:
             # Clean up the title (remove quotes, limit length)
             new_title = new_title.strip("\"'").strip()
             if len(new_title) > MAX_TITLE_LENGTH:
-                new_title = new_title[:MAX_TITLE_LENGTH-3] + "..."
+                new_title = new_title[: MAX_TITLE_LENGTH - 3] + "..."
 
             if new_title and new_title != chat.metadata.title:
                 chat.metadata.title = new_title
@@ -134,4 +135,3 @@ class ChatManager:
             # If title generation fails, mark as attempted so we don't retry
             chat.metadata.smart_title_generated = True
             chat.save()
-

@@ -13,16 +13,16 @@ from llm_cli.exceptions import ConfigurationError
 
 def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
     """Load models and aliases from models.yaml file.
-    
+
     Loads package models.yaml first, then merges with user models.yaml if it exists.
     User config takes precedence for aliases and default model.
-    
+
     Returns:
         Tuple of (model_map, default_model)
     """
     model_map = {}
     default_model = DEFAULT_FALLBACK_MODEL  # fallback default
-    
+
     # Load package models.yaml
     try:
         with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
@@ -58,7 +58,7 @@ def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
                     merged_config[section_name].update(section_data)
                 else:
                     merged_config[section_name] = section_data
-        
+
         # User aliases completely override package aliases
         if "aliases" in user_config:
             merged_config["aliases"] = user_config["aliases"]

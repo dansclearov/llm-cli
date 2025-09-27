@@ -34,7 +34,7 @@ class OpenRouterProvider(LLMProvider):
             # Get model configuration for capabilities and extra params
             config = get_model_capabilities("openrouter", model)
             capabilities = self.get_capabilities(model)
-            
+
             payload = {
                 "model": model,
                 "messages": messages,
@@ -44,7 +44,7 @@ class OpenRouterProvider(LLMProvider):
             # Add reasoning parameter for models that support thinking
             if capabilities.supports_thinking and options.enable_thinking:
                 payload["reasoning"] = {"effort": "high", "exclude": False}
-            
+
             # Merge any extra_params from model configuration
             extra_params = config.get("extra_params", {})
             if extra_params:
@@ -66,16 +66,16 @@ class OpenRouterProvider(LLMProvider):
                     chunk_data = line[6:].decode("utf-8")
                     if chunk_data == "[DONE]":
                         break
-                    
+
                     try:
                         data = json.loads(chunk_data)
                         if "choices" in data and data["choices"]:
                             delta = data["choices"][0].get("delta", {})
-                            
+
                             # Handle OpenRouter reasoning content
                             if "reasoning" in delta and delta["reasoning"]:
                                 yield StreamChunk(thinking=delta["reasoning"])
-                            
+
                             # Handle regular content
                             if "content" in delta and delta["content"]:
                                 yield StreamChunk(content=delta["content"])

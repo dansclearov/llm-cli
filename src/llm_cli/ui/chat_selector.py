@@ -24,7 +24,6 @@ from llm_cli.constants import (
     NAVIGATION_KEYS,
 )
 from llm_cli.core.session import Chat, ChatMetadata
-from llm_cli.exceptions import ChatNotFoundError
 
 
 class ChatSelector:
@@ -60,30 +59,34 @@ class ChatSelector:
 
             for i, chat in enumerate(page_chats):
                 date_str = chat.updated_at.strftime("%Y-%m-%d %H:%M")
-                title = chat.title[:MAX_TITLE_LENGTH] + "..." if len(chat.title) > MAX_TITLE_LENGTH else chat.title
+                title = (
+                    chat.title[:MAX_TITLE_LENGTH] + "..."
+                    if len(chat.title) > MAX_TITLE_LENGTH
+                    else chat.title
+                )
 
                 if i == selected_index:
                     # Highlighted selection
                     output.append(
-                        f"[bright_yellow]❯ {i+1:2}. [{date_str}] {title:<80} "
+                        f"[bright_yellow]❯ {i + 1:2}. [{date_str}] {title:<80} "
                         f"[bright_black]({chat.model}, {chat.message_count} msgs)[/bright_black][/bright_yellow]"
                     )
                 else:
                     # Normal entry
                     output.append(
-                        f"  {i+1:2}. [{date_str}] {title:<80} "
+                        f"  {i + 1:2}. [{date_str}] {title:<80} "
                         f"[bright_black]({chat.model}, {chat.message_count} msgs)[/bright_black]"
                     )
 
             if total_pages > 1:
                 output.append("")
                 output.append(
-                    f"[dim]↑/↓/k/j or Ctrl+P/N: navigate, Enter: select, n/p or Ctrl+L/H: pages, dd: delete, q: quit[/dim]"
+                    "[dim]↑/↓/k/j or Ctrl+P/N: navigate, Enter: select, n/p or Ctrl+L/H: pages, dd: delete, q: quit[/dim]"
                 )
             else:
                 output.append("")
                 output.append(
-                    f"[dim]↑/↓/k/j or Ctrl+P/N: navigate, Enter: select, dd: delete, q: quit[/dim]"
+                    "[dim]↑/↓/k/j or Ctrl+P/N: navigate, Enter: select, dd: delete, q: quit[/dim]"
                 )
 
             return "\n".join(output)
@@ -133,14 +136,13 @@ class ChatSelector:
                         return Chat.load(selected_chat.id)
 
                     elif (
-                        key in NAVIGATION_KEYS["NEXT_PAGE"] and current_page < total_pages - 1
+                        key in NAVIGATION_KEYS["NEXT_PAGE"]
+                        and current_page < total_pages - 1
                     ):
                         current_page += 1
                         selected_index = INITIAL_SELECTED_INDEX
 
-                    elif (
-                        key in NAVIGATION_KEYS["PREV_PAGE"] and current_page > 0
-                    ):
+                    elif key in NAVIGATION_KEYS["PREV_PAGE"] and current_page > 0:
                         current_page -= 1
                         selected_index = INITIAL_SELECTED_INDEX
 
@@ -193,6 +195,8 @@ class ChatSelector:
             if chat_dir.exists():
                 shutil.rmtree(chat_dir)
 
-    def _refresh_chat_list(self, chats: List[ChatMetadata], deleted_id: str) -> List[ChatMetadata]:
+    def _refresh_chat_list(
+        self, chats: List[ChatMetadata], deleted_id: str
+    ) -> List[ChatMetadata]:
         """Remove deleted chat from the list."""
         return [chat for chat in chats if chat.id != deleted_id]

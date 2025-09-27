@@ -16,12 +16,12 @@ def get_user_config_path() -> Path:
 def load_user_config() -> Dict[str, Any]:
     """Load user configuration from file."""
     config_path = get_user_config_path()
-    
+
     if not config_path.exists():
         return {}
-    
+
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
@@ -31,9 +31,9 @@ def save_user_config(config_data: Dict[str, Any]) -> None:
     """Save user configuration to file."""
     config_path = get_user_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     try:
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             json.dump(config_data, f, indent=2)
     except OSError:
         # Silently fail if we can't write the config file

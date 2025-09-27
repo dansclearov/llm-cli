@@ -1,4 +1,3 @@
-import json
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -19,9 +18,9 @@ class TestChatMetadata:
             model="gpt-4o",
             message_count=2,
             preview="Hello world",
-            smart_title_generated=False
+            smart_title_generated=False,
         )
-        
+
         assert metadata.id == "test-123"
         assert metadata.title == "Test Chat"
         assert metadata.model == "gpt-4o"
@@ -38,9 +37,9 @@ class TestChatMetadata:
             updated_at=now,
             model="gpt-4o",
             message_count=2,
-            preview="Hello world"
+            preview="Hello world",
         )
-        
+
         data = metadata.to_dict()
         assert data["id"] == "test-123"
         assert data["title"] == "Test Chat"
@@ -59,9 +58,9 @@ class TestChatMetadata:
             "model": "gpt-4o",
             "message_count": 2,
             "preview": "Hello world",
-            "smart_title_generated": True
+            "smart_title_generated": True,
         }
-        
+
         metadata = ChatMetadata.from_dict(data)
         assert metadata.id == "test-123"
         assert metadata.title == "Test Chat"
@@ -80,14 +79,17 @@ class TestChat:
             updated_at=datetime.now(),
             model="gpt-4o",
             message_count=2,
-            preview="Hello"
+            preview="Hello",
         )
-        
-        chat = Chat(metadata=metadata, messages=[
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi there!"}
-        ])
-        
+
+        chat = Chat(
+            metadata=metadata,
+            messages=[
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi there!"},
+            ],
+        )
+
         assert chat.should_be_saved()
 
     def test_should_not_be_saved_empty(self):
@@ -98,9 +100,9 @@ class TestChat:
             updated_at=datetime.now(),
             model="gpt-4o",
             message_count=0,
-            preview=""
+            preview="",
         )
-        
+
         chat = Chat(metadata=metadata, messages=[])
         assert not chat.should_be_saved()
 
@@ -112,21 +114,25 @@ class TestChat:
             updated_at=datetime.now(),
             model="gpt-4o",
             message_count=0,
-            preview=""
+            preview="",
         )
-        
-        chat = Chat(metadata=metadata, messages=[
-            {"role": "system", "content": "You are a helpful assistant."}
-        ])
-        
+
+        chat = Chat(
+            metadata=metadata,
+            messages=[{"role": "system", "content": "You are a helpful assistant."}],
+        )
+
         assert not chat.should_be_saved()
 
     def test_save_and_load(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             # Mock the config to use temp directory
             with pytest.MonkeyPatch().context() as mp:
-                mp.setattr("llm_cli.core.session.Config", lambda: type('Config', (), {'chat_dir': temp_dir})())
-                
+                mp.setattr(
+                    "llm_cli.core.session.Config",
+                    lambda: type("Config", (), {"chat_dir": temp_dir})(),
+                )
+
                 # Create chat
                 metadata = ChatMetadata(
                     id="test-123",
@@ -135,23 +141,23 @@ class TestChat:
                     updated_at=datetime.now(),
                     model="gpt-4o",
                     message_count=2,
-                    preview="Hello"
+                    preview="Hello",
                 )
-                
+
                 messages = [
                     {"role": "user", "content": "Hello"},
-                    {"role": "assistant", "content": "Hi there!"}
+                    {"role": "assistant", "content": "Hi there!"},
                 ]
-                
+
                 chat = Chat(metadata=metadata, messages=messages)
                 chat.save()
-                
+
                 # Verify files exist
                 chat_dir = Path(temp_dir) / "test-123"
                 assert chat_dir.exists()
                 assert (chat_dir / "metadata.json").exists()
                 assert (chat_dir / "messages.json").exists()
-                
+
                 # Load chat
                 loaded_chat = Chat.load("test-123")
                 assert loaded_chat.metadata.id == "test-123"
@@ -163,9 +169,12 @@ class TestChat:
     def test_load_nonexistent_chat(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             with pytest.MonkeyPatch().context() as mp:
-                mp.setattr("llm_cli.core.session.Config", lambda: type('Config', (), {'chat_dir': temp_dir})())
-                
+                mp.setattr(
+                    "llm_cli.core.session.Config",
+                    lambda: type("Config", (), {"chat_dir": temp_dir})(),
+                )
+
                 with pytest.raises(ChatNotFoundError) as exc_info:
                     Chat.load("nonexistent-id")
-                
+
                 assert "Chat not found: nonexistent-id" in str(exc_info.value)

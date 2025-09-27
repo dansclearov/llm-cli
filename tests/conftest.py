@@ -1,23 +1,23 @@
 """Pytest configuration and fixtures."""
 
-import os
 import tempfile
 import pytest
-from unittest.mock import patch, Mock
 
-from llm_cli.providers.base import LLMProvider, ModelCapabilities, StreamChunk, ChatOptions
+from llm_cli.providers.base import (
+    LLMProvider,
+    ModelCapabilities,
+    StreamChunk,
+)
 
 
 class MockProvider(LLMProvider):
     """Mock provider for testing."""
-    
+
     def get_capabilities(self, model: str) -> ModelCapabilities:
         return ModelCapabilities(
-            supports_search=False,
-            supports_thinking=False,
-            max_tokens=4096
+            supports_search=False, supports_thinking=False, max_tokens=4096
         )
-    
+
     def stream_response(self, messages, model, options):
         yield StreamChunk(content="Hello")
         yield StreamChunk(content=" world!")

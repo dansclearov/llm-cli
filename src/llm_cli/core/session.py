@@ -1,11 +1,10 @@
 """Chat session management."""
 
 import json
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from llm_cli.config.settings import Config
 from llm_cli.exceptions import ChatNotFoundError
@@ -71,7 +70,7 @@ class Chat:
         """Save chat to disk only if it has non-system messages."""
         if not self.should_be_saved():
             return
-            
+
         chat_dir = self.chat_dir
         chat_dir.mkdir(parents=True, exist_ok=True)
 

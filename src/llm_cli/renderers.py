@@ -67,7 +67,7 @@ class ResponseRenderer(ABC):
 
 class PlainTextRenderer(ResponseRenderer):
     """Simple print-based renderer.
-    
+
     LEGACY: Kept for rollback purposes only - do not extend.
     Use StyledRenderer instead for new features.
     """
@@ -133,6 +133,7 @@ class StyledRenderer(ResponseRenderer):
         """Initialize the response rendering."""
         if not self.options.silent:
             from llm_cli.constants import AI_PROMPT
+
             self.console.print(Text(AI_PROMPT, style="blue bold"), end="")
 
     def handle_chunk(self, chunk: StreamChunk) -> str:

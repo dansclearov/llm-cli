@@ -3,7 +3,6 @@ from typing import Dict, List, Optional
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from llm_cli.exceptions import AuthenticationError
 from llm_cli.providers.base import ChatOptions
 from llm_cli.registry import ModelRegistry
 from llm_cli.response_handler import ResponseHandler
@@ -21,7 +20,7 @@ class LLMClient:
         self,
         messages: List[Dict[str, str]],
         model_alias: str,
-        options: ChatOptions = None,
+        options: Optional[ChatOptions] = None,
     ) -> str:
         """Get response from the specified model."""
         if options is None:

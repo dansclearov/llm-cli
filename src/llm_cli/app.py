@@ -35,22 +35,22 @@ def print_user_paths() -> None:
     """Print all user path locations used by the application."""
     config_dir = Path(user_config_dir("llm_cli", ensure_exists=True))
     data_dir = Path(user_data_dir("llm_cli", ensure_exists=True))
-    
+
     # Configuration directory
     print(f"Configuration directory: {config_dir}")
     print(f"  - User config file: {config_dir / 'config.json'}")
     print(f"  - User prompts: {config_dir / 'prompts'}/ (*.txt files)")
     print(f"  - User model overrides: {config_dir / 'models.yaml'}")
-    
+
     # Data directory
     chat_dir = os.getenv("LLM_CLI_CHAT_DIR", str(data_dir / "chats"))
     print(f"Data directory: {data_dir}")
     print(f"  - Chat storage: {chat_dir}")
-    
+
     # Environment variable overrides
     print("\nEnvironment variable overrides:")
     print(f"  - LLM_CLI_CHAT_DIR: {os.getenv('LLM_CLI_CHAT_DIR', 'not set')}")
-    
+
     # Show which paths currently exist
     print("\nCurrent status:")
     paths_to_check = [
@@ -60,7 +60,7 @@ def print_user_paths() -> None:
         config_dir / "models.yaml",
         Path(chat_dir),
     ]
-    
+
     for path in paths_to_check:
         exists = "✓" if path.exists() else "✗"
         print(f"  {exists} {path}")
@@ -124,8 +124,6 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
     return current_chat
 
 
-
-
 def run_chat_loop(
     current_chat: Chat,
     args,
@@ -141,7 +139,7 @@ def run_chat_loop(
     # Check if this is a new chat (only has system message)
     user_messages = [msg for msg in current_chat.messages if msg["role"] != "system"]
     is_first_message = len(user_messages) == 0
-    
+
     if is_first_message:
         # Show welcome message for new chats
         print(
@@ -152,7 +150,11 @@ def run_chat_loop(
     else:
         # Show system message if different from current prompt
         system_message = next(
-            (msg["content"] for msg in current_chat.messages if msg["role"] == "system"),
+            (
+                msg["content"]
+                for msg in current_chat.messages
+                if msg["role"] == "system"
+            ),
             "",
         )
         if system_message != prompt_str:
@@ -180,13 +182,19 @@ def run_chat_loop(
             finished = False
             response = llm_client.chat(current_chat.messages, args.model, chat_options)
             current_chat.messages.append({"role": "assistant", "content": response})
-            
+
             # Update title after first message
-            user_messages = [msg for msg in current_chat.messages if msg["role"] == "user"]
-            if len(user_messages) == 1 and current_chat.metadata.title.startswith("Chat "):
+            user_messages = [
+                msg for msg in current_chat.messages if msg["role"] == "user"
+            ]
+            if len(user_messages) == 1 and current_chat.metadata.title.startswith(
+                "Chat "
+            ):
                 first_msg = user_messages[0]["content"]
-                current_chat.metadata.title = first_msg.replace("\n", " ").strip()[:MAX_TITLE_LENGTH + 1]
-            
+                current_chat.metadata.title = first_msg.replace("\n", " ").strip()[
+                    : MAX_TITLE_LENGTH + 1
+                ]
+
             current_chat.save()  # Auto-save after each exchange
 
             # Generate smart title once we have enough conversation (only once per chat)
@@ -215,12 +223,12 @@ def main():
     """Main entry point for the LLM CLI application."""
     registry = setup_providers()
     args = parse_arguments(registry)
-    
+
     # Handle --user-paths command
     if args.user_paths:
         print_user_paths()
         return
-    
+
     config, chat_manager, llm_client, input_handler, chat_options, prompt_str = (
         setup_configuration(args, registry)
     )
