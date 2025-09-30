@@ -14,6 +14,8 @@
 - add multi turn in demo
 - 20 entries in history and month, year subheaders
 - way to hide short chats in history
+- web search not saved in history, should we?
+- add search on the fly during an already live chat
 
 Glossary:
 ? -> if possible

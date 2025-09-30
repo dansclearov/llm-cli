@@ -27,22 +27,25 @@ class OpenAIProvider(LLMProvider):
     ) -> Generator[StreamChunk, None, None]:
         """Stream response from OpenAI API using responses.create."""
         try:
-            # Check if this is a reasoning model
+            # Check capabilities
             capabilities = self.get_capabilities(model)
 
+            # Build request parameters
+            request_params = {
+                "model": model,
+                "input": messages,
+                "stream": True,
+            }
+
+            # Add reasoning if supported and enabled
             if capabilities.supports_thinking and options.enable_thinking:
-                # Use responses.create API with reasoning summaries
-                response = self.client.responses.create(
-                    model=model,
-                    input=messages,
-                    stream=True,
-                    reasoning={"summary": "auto"},
-                )
-            else:
-                # Use responses.create API without reasoning
-                response = self.client.responses.create(
-                    model=model, input=messages, stream=True
-                )
+                request_params["reasoning"] = {"summary": "auto"}
+
+            # Add web search tool if supported and enabled
+            if capabilities.supports_search and options.enable_search:
+                request_params["tools"] = [{"type": "web_search"}]
+
+            response = self.client.responses.create(**request_params)
 
             for chunk in response:
                 event_type = getattr(chunk, "type", "unknown")

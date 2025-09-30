@@ -185,12 +185,12 @@ q, Ctrl+C             Quit selector
 
 | Provider | Streaming | Thinking Trace Output | Web Search |
 | --- | --- | --- | --- |
-| OpenAI | ✅ | ✅ (`gpt-5`, `o4-mini`, `o3`) | ❌ |
-| Anthropic | ✅ | ❌ | ❌ |
-| DeepSeek | ✅ | ✅ (`deepseek-reasoner`) | ❌ |
-| xAI | ✅ | ❌ | ✅ (`grok-3`) |
+| OpenAI | ✅ | ✅ | ✅ |
+| Anthropic | ✅ | ❌ | ✅ |
+| DeepSeek | ✅ | ✅ | ❌ |
+| xAI | ✅ | ❌ | ✅ |
 | Gemini | ✅ | ❌ | ❌ |
-| OpenRouter | ✅ | ✅ (model dependent) | ❌ |
+| OpenRouter | ✅ | ✅ | ❌ |
 
 ## 🎨 Prompts
 

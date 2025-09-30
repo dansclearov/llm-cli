@@ -7,7 +7,7 @@ aliases:
   default: gpt-4o
   
   # Meaningful aliases only (where alias != model name)
-  sonnet: anthropic/claude-sonnet-4-20250514
+  sonnet: anthropic/claude-sonnet-4-5-20250929
   opus: anthropic/claude-opus-4-1-20250805
   gpt-4o: openai/chatgpt-4o-latest
   gpt-4.5: openai/gpt-4.5-preview
@@ -18,31 +18,39 @@ aliases:
   grok-4: openrouter/x-ai/grok-4
 
 anthropic:
-  claude-sonnet-4-20250514:
-    supports_search: false
+  claude-sonnet-4-5-20250929:
+    supports_search: true
     supports_thinking: false
     max_tokens: 8192
-    
-  claude-opus-4-20250514:
-    supports_search: false
+
+  claude-sonnet-4-20250514:
+    supports_search: true
+    supports_thinking: false
+    max_tokens: 8192
+
+  claude-opus-4-1-20250805:
+    supports_search: true
     supports_thinking: false
     max_tokens: 8192
 
 openai:
   chatgpt-4o-latest: {}
-    
+
   gpt-4.5-preview: {}
-    
+
   gpt-4-turbo: {}
 
   gpt-5:
     supports_thinking: true
-    
+    supports_search: true
+
   o4-mini:
     supports_thinking: true
-    
+    supports_search: true
+
   o3:
     supports_thinking: true
+    supports_search: true
 
 deepseek:
   deepseek-reasoner:

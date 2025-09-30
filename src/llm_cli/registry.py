@@ -49,6 +49,11 @@ class ModelRegistry:
         """Get the default model alias."""
         return self._default_model
 
+    def get_model_capabilities(self, model_alias: str):
+        """Get capabilities for a specific model."""
+        provider, model_id = self.get_provider_for_model(model_alias)
+        return provider.get_capabilities(model_id)
+
     def get_display_models(self) -> list[str]:
         """Get models for CLI display, preferring aliases over full names."""
         # Use the merged config that includes user-defined aliases
