@@ -24,6 +24,7 @@ from llm_cli.constants import (
 from llm_cli.core.chat_manager import ChatManager
 from llm_cli.core.client import LLMClient
 from llm_cli.core.session import Chat
+from llm_cli.exceptions import ChatNotFoundError
 from llm_cli.prompts import read_system_message_from_file
 from llm_cli.providers.base import ChatOptions
 from llm_cli.ui.input_handler import InputHandler
@@ -107,7 +108,7 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
             try:
                 current_chat = Chat.load(args.resume)
                 print(f"Loaded chat: {current_chat.metadata.title}")
-            except FileNotFoundError:
+            except (ChatNotFoundError, FileNotFoundError):
                 print(f"Chat not found: {args.resume}")
                 return None
         else:  # No ID provided, show selector
@@ -192,7 +193,7 @@ def run_chat_loop(
             ):
                 first_msg = user_messages[0]["content"]
                 current_chat.metadata.title = first_msg.replace("\n", " ").strip()[
-                    : MAX_TITLE_LENGTH + 1
+                    :MAX_TITLE_LENGTH
                 ]
 
             current_chat.save()  # Auto-save after each exchange

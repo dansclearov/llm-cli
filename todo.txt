@@ -3,8 +3,7 @@
 - tree history like in chatgpt?
 - file upload with <...> syntax, manual (autocomplete?) and on ctrl+v?
 - nvim plugin, the plugin functionality could allow navigating the tree history
-- vhs demo
-- login with anthropic plan
+- login with anthropic plan (against tos?)
 - image pasting
 - document title model small cost
 - document the cli being tested only on linux
@@ -12,10 +11,12 @@
 - add update readme to claude.md
 - resoning effort cli switch and new capability
 - add multi turn in demo
-- 20 entries in history and month, year subheaders
+- 20 entries in history and month, year/month subheaders
 - way to hide short chats in history
 - web search not saved in history, should we?
 - add search on the fly during an already live chat
+- "User: " prompt dissapears after paste
+- bookmark chats
 
 Glossary:
 ? -> if possible

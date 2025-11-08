@@ -13,9 +13,8 @@ class ModelRegistry:
 
     def __init__(self):
         self._providers: Dict[str, LLMProvider] = {}
-        self._model_map: Dict[
-            str, Tuple[str, str]
-        ] = {}  # alias -> (provider_name, model_id)
+        self._model_map: Dict[str, Tuple[str, str]] = {}
+        self._aliases: Dict[str, Tuple[str, str]] = {}
         self._default_model: str = "gpt-4o"  # fallback default
         self._load_models_and_aliases()
 
@@ -56,48 +55,26 @@ class ModelRegistry:
 
     def get_display_models(self) -> list[str]:
         """Get models for CLI display, preferring aliases over full names."""
-        # Use the merged config that includes user-defined aliases
-        _, _ = load_models_and_aliases()
-        from importlib import resources
-        from pathlib import Path
-        import yaml
-        from platformdirs import user_config_dir
+        alias_targets = {
+            alias: target
+            for alias, target in self._aliases.items()
+            if alias not in EXCLUDED_ALIASES
+        }
 
-        # Load package models.yaml
-        with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
-            config = yaml.safe_load(f)
+        display_models = set(alias_targets.keys())
 
-        # Load user models.yaml if it exists and merge
-        user_config_path = Path(user_config_dir("llm_cli")) / "models.yaml"
-        if user_config_path.exists():
-            with open(user_config_path, "r") as f:
-                user_config = yaml.safe_load(f) or {}
-                if "aliases" in user_config:
-                    config["aliases"] = user_config["aliases"]
-
-        aliases = set(config.get("aliases", {}).keys()) - EXCLUDED_ALIASES
-        all_models = set(self._model_map.keys())
-
-        # Show aliases + models that don't have aliases
-        display_models = []
-        for model in all_models:
-            if model in aliases:
-                display_models.append(model)
-            else:
-                # Check if any alias points to this model
-                has_alias = False
-                for alias in aliases:
-                    if (
-                        alias in self._model_map
-                        and self._model_map[alias] == self._model_map[model]
-                    ):
-                        has_alias = True
-                        break
-                if not has_alias:
-                    display_models.append(model)
+        alias_target_values = set(alias_targets.values())
+        for model_alias, mapping in self._model_map.items():
+            if model_alias == mapping[1] and mapping not in alias_target_values:
+                display_models.add(model_alias)
 
         return sorted(display_models)
 
     def _load_models_and_aliases(self) -> None:
         """Load models and aliases from models.yaml file."""
         self._model_map, self._default_model = load_models_and_aliases()
+        self._aliases = {
+            alias: mapping
+            for alias, mapping in self._model_map.items()
+            if alias != mapping[1]
+        }
