@@ -85,6 +85,8 @@ openrouter:
     extra_params:
       provider:
         quantizations: ["fp8", "fp16", "bf16", "fp32"]
+
+Reasoning-focused OpenAI models (e.g., `gpt-5`, `o3`, `o4-mini`) should live under the `openai-responses` provider section so Pydantic AI routes them through the Responses API and can surface their thinking traces. Likewise, Gemini models should be listed under `google-gla`/`google-vertex`, and xAI Grok models under `grok`, so the right provider client (and associated features like thinking) is used.
 ```
 
 ### Configuration Locations
@@ -150,6 +152,19 @@ Options:
   --user-paths         Show all configuration paths and exit
   -h, --help           Show this help message
 ```
+
+### Thinking Traces
+
+- When thinking mode is enabled, OpenAI reasoning models automatically receive `openai_reasoning_summary=detailed` and `openai_reasoning_effort=medium` so the CLI can show their reasoning summaries (OpenAI does not expose raw CoT tokens).
+- Anthropic models automatically get `anthropic_thinking` enabled with a default `budget_tokens=2048`, satisfying the API requirement while giving you useful insight.
+- Google Gemini models automatically receive `google_thinking_config={'include_thoughts': True}` so their thinking traces stream into the CLI.
+- You can further customize provider-specific knobs via `ChatOptions.extra_settings` if you need different defaults.
+
+### Web Search (`--search`)
+
+- When `--search` is passed, we attach Pydantic AI’s native `WebSearchTool` for providers that support first-party search (Anthropic, OpenAI Responses models such as `gpt-5`, Google Gemini, Groq, and OpenRouter aliases that proxy those backends like `openrouter/x-ai/grok-4`).
+- For other OpenRouter models we transparently attach the platform’s `web` plugin and request the `:online` variant of the model slug, so any model can fall back to its native or Exa-powered search layer.
+- Providers without native search support simply ignore the flag (you’ll see a short warning only if you explicitly enable it on an unsupported model).
 
 ### Input Methods
 
@@ -261,24 +276,18 @@ src/llm_cli/
 ├── ui/                # User interface
 │   ├── input_handler.py # InputHandler - prompt_toolkit
 │   └── chat_selector.py # ChatSelector - interactive picker
-├── providers/         # LLM provider implementations
+├── llm_types.py       # Shared capability + option dataclasses
 ├── renderers.py       # Response rendering (Plain/Styled)
-├── registry.py        # ModelRegistry - provider management
+├── registry.py        # ModelRegistry - alias management
 └── response_handler.py # Streaming coordination
 ```
 
 ### Key Patterns
 
-- **Provider Pattern**: Unified `LLMProvider` interface for all APIs
-- **Registry Pattern**: Centralized model/provider management
+- **Pydantic AI**: Direct access to OpenAI/Anthropic/Gemini/etc via `pydantic_ai.direct`
+- **Registry Pattern**: Centralized alias + capability management
 - **Strategy Pattern**: Pluggable renderers and configurations
 - **Observer Pattern**: Streaming response handling
-
-### Provider Architecture
-
-Each provider implements:
-- `get_capabilities(model)` → Model feature detection
-- `stream_response(messages, model, options)` → Unified streaming
 
 ## 📄 License
 

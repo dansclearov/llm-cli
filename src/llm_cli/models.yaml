@@ -4,33 +4,34 @@
 # Centralized model aliases
 aliases:
   # Default model (used when no -m provided)
-  default: gpt-4o
+  default: sonnet
   
   # Meaningful aliases only (where alias != model name)
   sonnet: anthropic/claude-sonnet-4-5-20250929
   opus: anthropic/claude-opus-4-1-20250805
   gpt-4o: openai/chatgpt-4o-latest
   gpt-4.5: openai/gpt-4.5-preview
-  r1: deepseek/deepseek-reasoner
+  r1: openrouter/deepseek/deepseek-r1-0528
   r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
   kimi: openrouter/moonshotai/kimi-k2-0905
+  kimi-thinking: openrouter/moonshotai/kimi-k2-thinking
   qwen3-max: openrouter/qwen/qwen3-max
   grok-4: openrouter/x-ai/grok-4
 
 anthropic:
   claude-sonnet-4-5-20250929:
     supports_search: true
-    supports_thinking: false
+    supports_thinking: true
     max_tokens: 8192
 
   claude-sonnet-4-20250514:
     supports_search: true
-    supports_thinking: false
+    supports_thinking: true
     max_tokens: 8192
 
   claude-opus-4-1-20250805:
     supports_search: true
-    supports_thinking: false
+    supports_thinking: true
     max_tokens: 8192
 
 openai:
@@ -40,6 +41,7 @@ openai:
 
   gpt-4-turbo: {}
 
+openai-responses:
   gpt-5:
     supports_thinking: true
     supports_search: true
@@ -52,18 +54,14 @@ openai:
     supports_thinking: true
     supports_search: true
 
-deepseek:
-  deepseek-reasoner:
+google-gla:
+  gemini-2.5-pro:
     supports_thinking: true
-
-xai:
-  grok-3:
     supports_search: true
 
-gemini:
-  gemini-2.5-pro: {}
-    
-  gemini-2.5-flash: {}
+  gemini-2.5-flash:
+    supports_thinking: true
+    supports_search: true
 
 # OpenRouter quantization configuration (YAML anchor for reuse)
 _openrouter_min_fp8: &openrouter_min_fp8
@@ -74,14 +72,29 @@ _openrouter_min_fp8: &openrouter_min_fp8
 openrouter:
   "deepseek/deepseek-r1-0528:free":
     supports_thinking: true
+    supports_search: true
+    extra_params:
+      <<: *openrouter_min_fp8
+  
+  deepseek/deepseek-r1-0528:
+    supports_thinking: true
+    supports_search: true
     extra_params:
       <<: *openrouter_min_fp8
     
   moonshotai/kimi-k2-0905:
+    supports_search: true
     extra_params:
       <<: *openrouter_min_fp8
 
-  x-ai/grok-4: {}
+  moonshotai/kimi-k2-thinking:
+    supports_thinking: true
+    supports_search: true
 
-  qwen/qwen3-max: {}
+  x-ai/grok-4:
+    supports_search: true
 
+  qwen/qwen3-max:
+    supports_search: true
+    extra_params:
+      <<: *openrouter_min_fp8

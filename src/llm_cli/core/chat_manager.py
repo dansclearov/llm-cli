@@ -10,7 +10,7 @@ from rich.console import Console
 from llm_cli.config.settings import Config
 from llm_cli.constants import MAX_TITLE_LENGTH
 from llm_cli.core.session import Chat, ChatMetadata
-from llm_cli.providers.base import ChatOptions
+from llm_cli.llm_types import ChatOptions
 from llm_cli.ui.chat_selector import ChatSelector
 
 

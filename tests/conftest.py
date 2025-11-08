@@ -1,32 +1,8 @@
 """Pytest configuration and fixtures."""
 
 import tempfile
+
 import pytest
-
-from llm_cli.providers.base import (
-    LLMProvider,
-    ModelCapabilities,
-    StreamChunk,
-)
-
-
-class MockProvider(LLMProvider):
-    """Mock provider for testing."""
-
-    def get_capabilities(self, model: str) -> ModelCapabilities:
-        return ModelCapabilities(
-            supports_search=False, supports_thinking=False, max_tokens=4096
-        )
-
-    def stream_response(self, messages, model, options):
-        yield StreamChunk(content="Hello")
-        yield StreamChunk(content=" world!")
-
-
-@pytest.fixture
-def mock_provider():
-    """Provide a mock LLM provider."""
-    return MockProvider()
 
 
 @pytest.fixture
