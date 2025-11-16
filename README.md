@@ -6,7 +6,7 @@ A multi-provider command-line interface for interacting with large language mode
 
 ## ✨ Features
 
-- **Multi-provider support**: OpenAI, Anthropic, DeepSeek, xAI, Gemini, OpenRouter
+- **Multi-provider support**: OpenAI, Anthropic, Gemini, OpenRouter (DeepSeek, xAI Grok, Qwen), Moonshot (Kimi)
 - **Advanced reasoning models**: Supports OpenAI o-series, DeepSeek R1  
 - **Rich terminal UI**: Styled output, interactive chat selection, vim mode support
 - **Intelligent chat management**: Auto-save, smart titles, resume/continue conversations
@@ -48,9 +48,9 @@ Set up your API keys in environment variables or `.env` file:
 ```env
 OPENAI_API_KEY=your_openai_api_key
 ANTHROPIC_API_KEY=your_anthropic_api_key  
-DEEPSEEK_API_KEY=your_deepseek_api_key
-XAI_API_KEY=your_xai_api_key
 GEMINI_API_KEY=your_gemini_api_key
+MOONSHOTAI_API_KEY=your_moonshot_api_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
@@ -60,34 +60,70 @@ Models are centrally configured in `src/llm_cli/models.yaml` with user overrides
 
 ```yaml
 aliases:
-  default: gpt-4o
-  sonnet: anthropic/claude-sonnet-4-20250514
+  default: sonnet                    # Default CLI model (alias)
+  sonnet: anthropic/claude-sonnet-4-5-20250929
   opus: anthropic/claude-opus-4-1-20250805
   gpt-4o: openai/chatgpt-4o-latest
-  r1: deepseek/deepseek-reasoner
+  gpt-4.5: openai/gpt-4.5-preview
+  gpt-5: openai-responses/gpt-5
+  r1: openrouter/deepseek/deepseek-r1-0528
   r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
-  kimi: openrouter/moonshotai/kimi-k2
+  kimi: moonshotai/kimi-latest
+  kimi-thinking: moonshotai/kimi-k2-thinking
+  qwen3-max: openrouter/qwen/qwen3-max
   grok-4: openrouter/x-ai/grok-4
 
 anthropic:
-  claude-sonnet-4-20250514:
-    supports_search: false
-    supports_thinking: false
+  claude-sonnet-4-5-20250929:
+    supports_search: true
+    supports_thinking: true
     max_tokens: 8192
 
-openai:
+openai-responses:
   gpt-5:
+    supports_search: true
     supports_thinking: true
+
+google-gla:                      # Gemini
+  gemini-2.5-pro:
+    supports_search: true
+    supports_thinking: true
+
+_openrouter_min_fp8: &openrouter_min_fp8
+  provider:
+    quantizations: ["fp8", "fp16", "bf16", "fp32", "unknown"]
 
 openrouter:
   "deepseek/deepseek-r1-0528:free":
+    supports_search: true
     supports_thinking: true
     extra_params:
-      provider:
-        quantizations: ["fp8", "fp16", "bf16", "fp32"]
+      <<: *openrouter_min_fp8
 
-Reasoning-focused OpenAI models (e.g., `gpt-5`, `o3`, `o4-mini`) should live under the `openai-responses` provider section so Pydantic AI routes them through the Responses API and can surface their thinking traces. Likewise, Gemini models should be listed under `google-gla`/`google-vertex`, and xAI Grok models under `grok`, so the right provider client (and associated features like thinking) is used.
+  deepseek/deepseek-r1-0528:
+    supports_search: true
+    supports_thinking: true
+    extra_params:
+      <<: *openrouter_min_fp8
+
+  x-ai/grok-4:
+    supports_search: true
+
+  qwen/qwen3-max:
+    supports_search: true
+    extra_params:
+      <<: *openrouter_min_fp8
+
+moonshotai:
+  kimi-latest:
+    supports_search: false   # Moonshot provider doesn't expose the built-in WebSearchTool
+
+  kimi-k2-thinking:
+    supports_search: false
+    supports_thinking: true
 ```
+
+Reasoning-focused OpenAI models (e.g., `gpt-5`, `o3`, `o4-mini`) should live under the `openai-responses` provider section so Pydantic AI routes them through the Responses API and can surface their thinking traces. Likewise, Gemini models should be listed under `google-gla`/`google-vertex`, xAI/DeepSeek via OpenRouter should stay under `openrouter`, and Kimi models should use the `moonshotai` provider so the right client (and associated features like thinking/search) is used.
 
 ### Configuration Locations
 
@@ -162,9 +198,9 @@ Options:
 
 ### Web Search (`--search`)
 
-- When `--search` is passed, we attach Pydantic AI’s native `WebSearchTool` for providers that support first-party search (Anthropic, OpenAI Responses models such as `gpt-5`, Google Gemini, Groq, and OpenRouter aliases that proxy those backends like `openrouter/x-ai/grok-4`).
-- For other OpenRouter models we transparently attach the platform’s `web` plugin and request the `:online` variant of the model slug, so any model can fall back to its native or Exa-powered search layer.
-- Providers without native search support simply ignore the flag (you’ll see a short warning only if you explicitly enable it on an unsupported model).
+- When `--search` is passed, we attach Pydantic AI's native `WebSearchTool` for providers that support first-party search (Anthropic, OpenAI Responses models such as `gpt-5`, Google Gemini). Moonshot's OpenAI-compatible API does not expose this hook via pydantic-ai yet.
+- OpenRouter models automatically add the platform's `web` plugin and switch to their `:online` variant so search works there too.
+- Providers without a dedicated search hook simply ignore the flag (you'll see a short warning only if you explicitly enable it on an unsupported model).
 
 ### Input Methods
 
@@ -187,12 +223,11 @@ q, Ctrl+C             Quit selector
 ## 📁 Supported Providers
 
 **Default models included:**
-- **OpenAI**: GPT-5, GPT-4o, o-series
-- **Anthropic**: Claude 4 Sonnet/Opus
-- **DeepSeek**: R1
-- **xAI**: Grok models via official API
-- **Gemini**: Google's latest Pro/Flash models  
-- **OpenRouter**: Access to 200+ models with flexible parameter control
+- **OpenAI**: GPT-4o, GPT-4.5 preview, GPT-5 (Responses API for thinking/search)
+- **Anthropic**: Claude 4.5 Sonnet, Claude 4.1 Opus
+- **Gemini**: 2.5 Pro/Flash
+- **Moonshot**: Kimi Latest, Kimi Thinking Preview
+- **OpenRouter**: DeepSeek R1 (free/paid), xAI Grok-4, Qwen3 Max
 
 *Add any model from these providers via `models.yaml` configuration.*
 
@@ -200,12 +235,14 @@ q, Ctrl+C             Quit selector
 
 | Provider | Streaming | Thinking Trace Output | Web Search |
 | --- | --- | --- | --- |
-| OpenAI | ✅ | ✅ | ✅ |
-| Anthropic | ✅ | ❌ | ✅ |
-| DeepSeek | ✅ | ✅ | ❌ |
-| xAI | ✅ | ❌ | ✅ |
-| Gemini | ✅ | ❌ | ❌ |
-| OpenRouter | ✅ | ✅ | ❌ |
+| OpenAI Responses (o-/gpt-5) | ✅ | ✅ | ✅ |
+| OpenAI Chat (gpt-4o, 4.5) | ✅ | ⚠️ (model-limited) | ⚠️ (no built-in hook) |
+| Anthropic | ✅ | ✅ | ✅ |
+| Gemini | ✅ | ✅ | ✅ |
+| Moonshot (Kimi) | ✅ | ✅ (thinking model) | ⚠️ (no built-in hook) |
+| OpenRouter (R1, Grok, Qwen) | ✅ | ✅ | ✅* |
+
+\*OpenRouter search uses the platform `web` plugin + `:online` model variant.
 
 ## 🎨 Prompts
 

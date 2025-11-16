@@ -139,7 +139,7 @@ All centralized in `constants.py`:
    - Anthropic models automatically get `anthropic_thinking={"type": "enabled", "budget_tokens": 2048}` when thinking is enabled to satisfy the API requirement.
    - Google Gemini models default to `google_thinking_config={"include_thoughts": True}` when thinking is enabled so their thoughts stream into the UI.
 6. Reasoning-focused OpenAI models (gpt-5, o-series) should be defined under the `openai-responses` provider section so the Responses API (with thinking traces) is used.
-7. `--search` wires up Pydantic AI’s `WebSearchTool` only for providers that support it (OpenAI Responses, Anthropic, Gemini). OpenRouter models automatically switch to their `:online` variant and add the `web` plugin so search works there too; other providers simply ignore the flag.
+7. `--search` wires up Pydantic AI's `WebSearchTool` only for providers that support it (OpenAI Responses, Anthropic, Gemini). OpenRouter models automatically switch to their `:online` variant and add the `web` plugin so search works there too; other providers simply ignore the flag.
 8. Rich console has `highlight=False` to prevent auto-styling numbers
 9. Prompts loaded from `src/llm_cli/prompts/` directory, not a Python package
 10. Custom exceptions in `exceptions.py` for proper error handling

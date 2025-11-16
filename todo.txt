@@ -17,6 +17,8 @@
 - add search on the fly during an already live chat
 - "User: " prompt dissapears after paste
 - bookmark chats
+- ctrl+c adds 2 newlines
+- no default config instead a default user config (or something like that)
 
 Glossary:
 ? -> if possible

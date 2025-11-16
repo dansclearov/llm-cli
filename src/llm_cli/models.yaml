@@ -13,8 +13,8 @@ aliases:
   gpt-4.5: openai/gpt-4.5-preview
   r1: openrouter/deepseek/deepseek-r1-0528
   r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
-  kimi: openrouter/moonshotai/kimi-k2-0905
-  kimi-thinking: openrouter/moonshotai/kimi-k2-thinking
+  kimi: moonshotai/kimi-latest
+  kimi-thinking: moonshotai/kimi-k2-thinking
   qwen3-max: openrouter/qwen/qwen3-max
   grok-4: openrouter/x-ai/grok-4
 
@@ -76,7 +76,7 @@ _openrouter_min_fp8: &openrouter_min_fp8
   provider:
     quantizations: ["fp8", "fp16", "bf16", "fp32", "unknown"]
 
-# TODO: implement search for openrouter
+# Search is handled via OpenRouter's `web` plugin + :online model variant (see client)
 openrouter:
   "deepseek/deepseek-r1-0528:free":
     supports_thinking: true
@@ -89,15 +89,6 @@ openrouter:
     supports_search: true
     extra_params:
       <<: *openrouter_min_fp8
-    
-  moonshotai/kimi-k2-0905:
-    supports_search: true
-    extra_params:
-      <<: *openrouter_min_fp8
-
-  moonshotai/kimi-k2-thinking:
-    supports_thinking: true
-    supports_search: true
 
   x-ai/grok-4:
     supports_search: true
@@ -106,3 +97,38 @@ openrouter:
     supports_search: true
     extra_params:
       <<: *openrouter_min_fp8
+
+moonshotai:
+  kimi-latest:
+    supports_search: false  # Pydantic AI Moonshot provider lacks built-in search tool hooks
+
+  kimi-k2-thinking:
+    supports_thinking: true
+    supports_search: false
+
+# -------------------------------------------------------------------
+# Reference: provider keys available from pydantic-ai (uncomment to add models)
+# Already defined above: anthropic, openai, openai-responses (OpenAI Responses API),
+# google-gla (Google Gemini), openrouter, moonshotai
+# azure:
+# bedrock:
+# cerebras:
+# cohere:
+# deepseek:
+# fireworks:
+# gateway:
+# github:
+# google:
+# google_vertex:
+# grok:
+# groq:
+# heroku:
+# huggingface:
+# litellm:
+# mistral:
+# nebius:
+# ollama:
+# outlines:
+# ovhcloud:
+# together:
+# vercel:
