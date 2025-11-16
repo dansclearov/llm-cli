@@ -9,8 +9,9 @@ from rich.console import Console
 
 from llm_cli.config.settings import Config
 from llm_cli.constants import MAX_TITLE_LENGTH
+from llm_cli.core.message_utils import build_prompt, flatten_history, response_text
 from llm_cli.core.session import Chat, ChatMetadata
-from llm_cli.providers.base import ChatOptions
+from llm_cli.llm_types import ChatOptions
 from llm_cli.ui.chat_selector import ChatSelector
 
 
@@ -37,8 +38,8 @@ class ChatManager:
             preview="New chat",
         )
 
-        messages = [{"role": "system", "content": system_message}]
-        chat = Chat(metadata=metadata, messages=messages)
+        chat = Chat(metadata=metadata)
+        chat.pending_system_prompt = system_message
         # Don't save empty chats - they'll be saved when first message is added
         return chat
 
@@ -81,34 +82,25 @@ class ChatManager:
     def generate_smart_title(self, chat: Chat, llm_client, model: str) -> None:
         """Generate a better title using LLM for chats with >3 message pairs."""
         # Caller should check smart_title_generated flag
-        non_system_messages = [msg for msg in chat.messages if msg["role"] != "system"]
+        flattened_history = flatten_history(chat.messages)
+        if not flattened_history:
+            return
 
         try:
             # Take first few exchanges for title generation
             conversation_sample = []
-            for i in range(0, min(8, len(non_system_messages)), 2):  # First 5 pairs max
-                if i < len(non_system_messages):
-                    conversation_sample.append(
-                        f"User: {non_system_messages[i]['content']}"
-                    )
-                if i + 1 < len(non_system_messages):
-                    conversation_sample.append(
-                        f"Assistant: {non_system_messages[i + 1]['content']}"
-                    )
+            for role, content in flattened_history[:8]:
+                prefix = "User" if role == "user" else "Assistant"
+                conversation_sample.append(f"{prefix}: {content}")
 
             conversation_text = "\n".join(conversation_sample)
 
-            # Generate title using LLM
-            title_prompt = [
-                {
-                    "role": "system",
-                    "content": "Generate a concise 5-10 word title for this conversation. No quotes, no punctuation, just the title.",
-                },
-                {
-                    "role": "user",
-                    "content": f"Conversation:\n{conversation_text}\n\nTitle:",
-                },
-            ]
+            # Generate title using LLM (single-turn prompt)
+            title_prompt = build_prompt(
+                "Generate a concise 5-10 word title for this conversation. "
+                "No quotes, no punctuation, just the title.",
+                f"Conversation:\n{conversation_text}\n\nTitle:",
+            )
 
             options = ChatOptions(
                 enable_search=False,
@@ -117,7 +109,8 @@ class ChatManager:
                 silent=True,
             )
 
-            new_title = llm_client.chat(title_prompt, model, options).strip()
+            response = llm_client.chat(title_prompt, model, options)
+            new_title = response_text(response).strip()
 
             # Clean up the title (remove quotes, limit length)
             new_title = new_title.strip("\"'").strip()

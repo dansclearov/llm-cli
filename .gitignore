@@ -166,3 +166,6 @@ llm_cli/prompts/*
 
 # Temporary/scratch files
 tmp.*
+
+# Pre-commit cache
+.pre-commit-cache/

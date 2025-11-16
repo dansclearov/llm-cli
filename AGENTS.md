@@ -50,13 +50,13 @@ src/llm_cli/
 │   ├── session.py     # Chat & ChatMetadata - data models
 │   └── chat_manager.py # ChatManager - CRUD operations
 ├── config/            # Configuration management
-│   ├── settings.py    # Config class & provider setup
+│   ├── settings.py    # Config class & registry setup
 │   ├── loaders.py     # YAML model configuration loading
 │   └── user_config.py # User configuration management
 ├── ui/                # User interface components
 │   ├── input_handler.py # InputHandler - prompt_toolkit integration
 │   └── chat_selector.py # ChatSelector - interactive chat picker
-├── providers/         # LLM provider implementations
+├── llm_types.py       # Shared chat/model capability dataclasses
 ├── app.py             # Main application orchestration
 ├── cli.py             # Command-line argument parsing
 ├── main.py            # Entry point (delegates to app.py)
@@ -64,25 +64,18 @@ src/llm_cli/
 ├── exceptions.py      # Custom exception classes
 ├── prompts.py         # Prompt file loading
 ├── model_config.py    # Model capabilities loading
-├── registry.py        # ModelRegistry - provider management
+├── registry.py        # ModelRegistry - alias + capability management
 └── renderers.py       # Response rendering (PlainTextRenderer, StyledRenderer)
 ```
 
 **Multi-provider LLM Client:**
-Supports OpenAI, Anthropic, DeepSeek, Google Gemini, xAI, and OpenRouter through a unified interface.
+Supports OpenAI, Anthropic, DeepSeek, Google Gemini, xAI, and OpenRouter through Pydantic AI's `direct` APIs with a unified interface.
 
 **Centralized Model Registry:**
 - `ModelRegistry` loads all models and aliases from `models.yaml` 
 - Providers are "dumb" API clients - no hardcoded model definitions
 - Default model configurable via `aliases.default` in YAML
 - Cross-provider aliases supported
-
-**Provider Implementations:**
-- OpenAI/xAI: Standard chat completions API
-- DeepSeek: Streams reasoning traces separately before main response
-- Anthropic: Uses system messages separately from conversation
-- Gemini: Converts OpenAI format to Gemini's content structure
-- OpenRouter: Proxy service for accessing multiple model providers
 
 **Model Configuration:**
 - **Single source of truth**: `models.yaml` contains all models, capabilities, and aliases
@@ -139,10 +132,17 @@ All centralized in `constants.py`:
 1. Add models to `models.yaml`, not provider classes
 2. `StyledRenderer` != markdown rendering, just styled console output
 3. Default model from YAML `aliases.default`, not hardcoded
-4. Providers don't define their own models anymore
-5. Rich console has `highlight=False` to prevent auto-styling numbers
-6. Prompts loaded from `src/llm_cli/prompts/` directory, not a Python package
-7. Custom exceptions in `exceptions.py` for proper error handling
+4. No bespoke provider classes—add/update models via YAML aliases instead
+5. Thinking traces:
+   - OpenAI reasoning models automatically receive `openai_reasoning_summary="detailed"` when thinking is enabled so we can render their reasoning summaries.
+   - OpenAI reasoning models also set `openai_reasoning_effort="medium"` by default to satisfy the API requirement.
+   - Anthropic models automatically get `anthropic_thinking={"type": "enabled", "budget_tokens": 2048}` when thinking is enabled to satisfy the API requirement.
+   - Google Gemini models default to `google_thinking_config={"include_thoughts": True}` when thinking is enabled so their thoughts stream into the UI.
+6. Reasoning-focused OpenAI models (gpt-5, o-series) should be defined under the `openai-responses` provider section so the Responses API (with thinking traces) is used.
+7. `--search` wires up Pydantic AI’s `WebSearchTool` only for providers that support it (OpenAI Responses, Anthropic, Gemini). OpenRouter models automatically switch to their `:online` variant and add the `web` plugin so search works there too; other providers simply ignore the flag.
+8. Rich console has `highlight=False` to prevent auto-styling numbers
+9. Prompts loaded from `src/llm_cli/prompts/` directory, not a Python package
+10. Custom exceptions in `exceptions.py` for proper error handling
 
 **Quick Tests:**
 ```bash

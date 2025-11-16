@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 import pytest
 
+from llm_cli.core.message_utils import flatten_history
 from llm_cli.core.session import Chat, ChatMetadata
 from llm_cli.exceptions import ChatNotFoundError
 
@@ -82,13 +83,9 @@ class TestChat:
             preview="Hello",
         )
 
-        chat = Chat(
-            metadata=metadata,
-            messages=[
-                {"role": "user", "content": "Hello"},
-                {"role": "assistant", "content": "Hi there!"},
-            ],
-        )
+        chat = Chat(metadata=metadata)
+        chat.append_user_message("Hello")
+        chat.append_assistant_response("Hi there!")
 
         assert chat.should_be_saved()
 
@@ -117,10 +114,8 @@ class TestChat:
             preview="",
         )
 
-        chat = Chat(
-            metadata=metadata,
-            messages=[{"role": "system", "content": "You are a helpful assistant."}],
-        )
+        chat = Chat(metadata=metadata)
+        chat.pending_system_prompt = "You are a helpful assistant."
 
         assert not chat.should_be_saved()
 
@@ -144,12 +139,9 @@ class TestChat:
                     preview="Hello",
                 )
 
-                messages = [
-                    {"role": "user", "content": "Hello"},
-                    {"role": "assistant", "content": "Hi there!"},
-                ]
-
-                chat = Chat(metadata=metadata, messages=messages)
+                chat = Chat(metadata=metadata)
+                chat.append_user_message("Hello")
+                chat.append_assistant_response("Hi there!")
                 chat.save()
 
                 # Verify files exist
@@ -163,8 +155,9 @@ class TestChat:
                 assert loaded_chat.metadata.id == "test-123"
                 assert loaded_chat.metadata.title == "Test Chat"
                 assert len(loaded_chat.messages) == 2
-                assert loaded_chat.messages[0]["role"] == "user"
-                assert loaded_chat.messages[0]["content"] == "Hello"
+                history = flatten_history(loaded_chat.messages)
+                assert history[0][0] == "user"
+                assert history[0][1] == "Hello"
 
     def test_load_nonexistent_chat(self):
         with tempfile.TemporaryDirectory() as temp_dir:
