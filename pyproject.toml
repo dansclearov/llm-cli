@@ -19,23 +19,12 @@ dependencies = [
     "rich>=14.0.0",
     "send2trash>=1.8.3",
     "prompt-toolkit>=3.0.51",
-    "pydantic-ai==1.12.0",
+    "pydantic-ai>=1.12.0",
 ]
 
 
 [project.scripts]
 llm-cli = "llm_cli.main:main"
-
-[tool.black]
-line-length = 88
-
-[tool.isort]
-profile = "black"
-
-[tool.mypy]
-python_version = "3.13"
-warn_return_any = true
-warn_unused_configs = true
 
 [build-system]
 requires = ["hatchling"]

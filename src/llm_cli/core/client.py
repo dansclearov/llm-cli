@@ -1,17 +1,10 @@
 import asyncio
 import signal
-from typing import Dict, List, Optional
+from typing import List, Optional, Sequence
 
 from pydantic_ai.builtin_tools import WebSearchTool
 from pydantic_ai.direct import model_request_stream
-from pydantic_ai.messages import (
-    ModelMessage,
-    ModelRequest,
-    ModelResponse,
-    SystemPromptPart,
-    TextPart,
-    UserPromptPart,
-)
+from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai.models import ModelRequestParameters
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -32,10 +25,10 @@ class LLMClient:
     )
     def chat(
         self,
-        messages: List[Dict[str, str]],
+        messages: Sequence[ModelMessage],
         model_alias: str,
         options: Optional[ChatOptions] = None,
-    ) -> str:
+    ) -> ModelResponse:
         """Get response from the specified model."""
         if options is None:
             options = ChatOptions()
@@ -94,8 +87,8 @@ class LLMClient:
         handler = ResponseHandler(capabilities, options)
         self.interrupt_handler = handler
 
-        # Convert stored chat history to pydantic-ai messages once per request.
-        model_messages = self._to_model_messages(messages)
+        # Always operate on ModelMessage history.
+        model_messages = list(messages)
 
         def handle_interrupt(signum, frame):
             if self.interrupt_handler:
@@ -107,7 +100,7 @@ class LLMClient:
         try:
             handler.start_response()
             try:
-                response = asyncio.run(
+                response: Optional[ModelResponse] = asyncio.run(
                     self._stream_model_response(
                         model_name,
                         model_messages,
@@ -120,38 +113,10 @@ class LLMClient:
                 handler.finish_response()
                 raise
             handler.finish_response(response)
-            return handler.get_full_response()
+            return response
         finally:
             signal.signal(signal.SIGINT, old_handler)
             self.interrupt_handler = None
-
-    def _to_model_messages(self, messages: List[Dict[str, str]]) -> List[ModelMessage]:
-        """Translate stored OpenAI-style messages into pydantic-ai message objects."""
-        result: List[ModelMessage] = []
-        pending_system_prompt: Optional[str] = None
-
-        for message in messages:
-            role = message.get("role")
-            content = message.get("content", "")
-
-            if role == "system":
-                pending_system_prompt = content
-                continue
-
-            if role == "user":
-                parts = []
-                if pending_system_prompt is not None:
-                    parts.append(SystemPromptPart(pending_system_prompt))
-                    pending_system_prompt = None
-                parts.append(UserPromptPart(content))
-                result.append(ModelRequest(parts=parts))
-            elif role == "assistant":
-                parts = []
-                if content:
-                    parts.append(TextPart(content=content))
-                result.append(ModelResponse(parts=parts))
-
-        return result
 
     async def _stream_model_response(
         self,

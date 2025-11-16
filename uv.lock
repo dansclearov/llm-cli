@@ -914,7 +914,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.84.0" },
     { name = "platformdirs", specifier = ">=4.3.8" },
     { name = "prompt-toolkit", specifier = ">=3.0.51" },
-    { name = "pydantic-ai", specifier = "==1.12.0" },
+    { name = "pydantic-ai", specifier = ">=1.12.0" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.3" },

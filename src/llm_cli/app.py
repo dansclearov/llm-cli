@@ -3,7 +3,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional, Sequence
 
 from dotenv import load_dotenv
 from platformdirs import user_config_dir, user_data_dir
@@ -21,8 +21,15 @@ from llm_cli.constants import (
     USER_COLOR,
     USER_PROMPT,
 )
+from pydantic_ai.messages import ModelMessage
+
 from llm_cli.core.chat_manager import ChatManager
 from llm_cli.core.client import LLMClient
+from llm_cli.core.message_utils import (
+    count_non_system_messages,
+    flatten_history,
+    latest_system_prompt,
+)
 from llm_cli.core.session import Chat
 from llm_cli.exceptions import ChatNotFoundError
 from llm_cli.prompts import read_system_message_from_file
@@ -67,15 +74,12 @@ def print_user_paths() -> None:
         print(f"  {exists} {path}")
 
 
-def print_all_messages(messages: List[Dict[str, str]]) -> None:
+def print_all_messages(messages: Sequence[ModelMessage]) -> None:
     """Print all messages in the conversation history."""
-    for msg in messages:
-        if msg["role"] == "system":
-            continue
-
-        role_label = USER_PROMPT if msg["role"] == "user" else AI_PROMPT
-        role_color = USER_COLOR if msg["role"] == "user" else AI_COLOR
-        print(f"{role_color}{role_label}{RESET_COLOR}{msg['content']}")
+    for role, content in flatten_history(messages):
+        role_label = USER_PROMPT if role == "user" else AI_PROMPT
+        role_color = USER_COLOR if role == "user" else AI_COLOR
+        print(f"{role_color}{role_label}{RESET_COLOR}{content}")
 
 
 def setup_configuration(
@@ -137,8 +141,9 @@ def run_chat_loop(
     is_new_chat: bool = False,
 ) -> None:
     """Run the main chat interaction loop."""
-    # Check if this is a new chat (only has system message)
-    user_messages = [msg for msg in current_chat.messages if msg["role"] != "system"]
+    # Check if this is a new chat (no user messages yet)
+    history = flatten_history(current_chat.messages)
+    user_messages = [content for role, content in history if role == "user"]
     is_first_message = len(user_messages) == 0
 
     if is_first_message:
@@ -150,14 +155,7 @@ def run_chat_loop(
         print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
     else:
         # Show system message if different from current prompt
-        system_message = next(
-            (
-                msg["content"]
-                for msg in current_chat.messages
-                if msg["role"] == "system"
-            ),
-            "",
-        )
+        system_message = latest_system_prompt(current_chat.messages) or ""
         if system_message != prompt_str:
             print(f"{SYSTEM_COLOR}System (from chat):{RESET_COLOR} {system_message}")
         else:
@@ -178,20 +176,24 @@ def run_chat_loop(
                 continue
 
             # Process normal input
-            current_chat.messages.append({"role": "user", "content": user_input})
+            current_chat.append_user_message(user_input)
 
             finished = False
-            response = llm_client.chat(current_chat.messages, args.model, chat_options)
-            current_chat.messages.append({"role": "assistant", "content": response})
+            model_response = llm_client.chat(
+                current_chat.messages, args.model, chat_options
+            )
+            current_chat.append_assistant_response(model_response)
 
             # Update title after first message
             user_messages = [
-                msg for msg in current_chat.messages if msg["role"] == "user"
+                content
+                for role, content in flatten_history(current_chat.messages)
+                if role == "user"
             ]
             if len(user_messages) == 1 and current_chat.metadata.title.startswith(
                 "Chat "
             ):
-                first_msg = user_messages[0]["content"]
+                first_msg = user_messages[0]
                 current_chat.metadata.title = first_msg.replace("\n", " ").strip()[
                     :MAX_TITLE_LENGTH
                 ]
@@ -199,9 +201,7 @@ def run_chat_loop(
             current_chat.save()  # Auto-save after each exchange
 
             # Generate smart title once we have enough conversation (only once per chat)
-            non_system_count = len(
-                [m for m in current_chat.messages if m["role"] != "system"]
-            )
+            non_system_count = count_non_system_messages(current_chat.messages)
             should_generate_title = (
                 non_system_count >= MIN_MESSAGES_FOR_SMART_TITLE
                 and not current_chat.metadata.smart_title_generated

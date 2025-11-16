@@ -4,9 +4,24 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    SystemPromptPart,
+    TextPart,
+    UserPromptPart,
+)
 
 from llm_cli.config.settings import Config
+from llm_cli.core.message_utils import (
+    convert_legacy_messages,
+    count_non_system_messages,
+    deserialize_model_messages,
+    serialize_model_messages,
+)
 from llm_cli.exceptions import ChatNotFoundError
 
 
@@ -54,7 +69,8 @@ class Chat:
     """A chat session with messages and metadata."""
 
     metadata: ChatMetadata
-    messages: List[Dict[str, str]] = field(default_factory=list)
+    messages: List[ModelMessage] = field(default_factory=list)
+    pending_system_prompt: Optional[str] = None
 
     @property
     def chat_dir(self) -> Path:
@@ -62,9 +78,34 @@ class Chat:
         config = Config()
         return Path(config.chat_dir) / self.metadata.id
 
+    def append_user_message(self, content: str) -> None:
+        """Append a user message, injecting system prompt if pending."""
+        parts = []
+        if self.pending_system_prompt:
+            parts.append(SystemPromptPart(self.pending_system_prompt))
+            self.pending_system_prompt = None
+        parts.append(UserPromptPart(content))
+        self.messages.append(ModelRequest(parts=parts))
+
+    def append_assistant_response(
+        self, response: ModelResponse | str, *, allow_empty: bool = False
+    ) -> None:
+        """Append an assistant response."""
+        if isinstance(response, ModelResponse):
+            self.messages.append(response)
+            return
+
+        if not response and not allow_empty:
+            return
+
+        parts = []
+        if response:
+            parts.append(TextPart(content=response))
+        self.messages.append(ModelResponse(parts=parts))
+
     def should_be_saved(self) -> bool:
         """Check if chat should be saved (has non-system messages)."""
-        return len([m for m in self.messages if m["role"] != "system"]) > 0
+        return count_non_system_messages(self.messages) > 0
 
     def save(self) -> None:
         """Save chat to disk only if it has non-system messages."""
@@ -76,9 +117,7 @@ class Chat:
 
         # Update metadata
         self.metadata.updated_at = datetime.now()
-        self.metadata.message_count = len(
-            [m for m in self.messages if m["role"] != "system"]
-        )
+        self.metadata.message_count = count_non_system_messages(self.messages)
 
         # Track if we've generated smart title to avoid regenerating
         if not hasattr(self.metadata, "smart_title_generated"):
@@ -88,9 +127,9 @@ class Chat:
         with open(chat_dir / "metadata.json", "w") as f:
             json.dump(self.metadata.to_dict(), f, indent=2)
 
-        # Save messages
+        # Save messages (pydantic-ai structure)
         with open(chat_dir / "messages.json", "w") as f:
-            json.dump(self.messages, f, indent=2)
+            json.dump(serialize_model_messages(self.messages), f, indent=2)
 
     @classmethod
     def load(cls, chat_id: str) -> "Chat":
@@ -107,6 +146,16 @@ class Chat:
 
         # Load messages
         with open(chat_dir / "messages.json", "r") as f:
-            messages = json.load(f)
+            raw_messages = json.load(f)
+
+        if (
+            raw_messages
+            and isinstance(raw_messages, list)
+            and isinstance(raw_messages[0], dict)
+            and "kind" in raw_messages[0]
+        ):
+            messages = deserialize_model_messages(raw_messages)
+        else:
+            messages = convert_legacy_messages(raw_messages)
 
         return cls(metadata=metadata, messages=messages)

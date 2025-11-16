@@ -42,7 +42,15 @@ openai:
   gpt-4-turbo: {}
 
 openai-responses:
+  gpt-5.1:
+    supports_thinking: true
+    supports_search: true
+
   gpt-5:
+    supports_thinking: true
+    supports_search: true
+  
+  gpt-5-mini:
     supports_thinking: true
     supports_search: true
 
