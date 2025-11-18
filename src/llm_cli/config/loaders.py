@@ -11,6 +11,26 @@ from llm_cli.constants import DEFAULT_FALLBACK_MODEL
 from llm_cli.exceptions import ConfigurationError
 
 
+def _ensure_user_config() -> Path:
+    """Ensure user config directory exists and create default models.yaml if missing."""
+    config_dir = Path(user_config_dir("llm_cli"))
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    user_config_path = config_dir / "models.yaml"
+    if not user_config_path.exists():
+        # Copy template to user config
+        try:
+            template_content = (
+                resources.files("llm_cli").joinpath("models_template.yaml").read_text()
+            )
+            user_config_path.write_text(template_content)
+        except Exception:
+            # Non-fatal: user can still use built-in models
+            pass
+
+    return user_config_path
+
+
 def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
     """Load models and aliases from models.yaml file.
 
@@ -34,8 +54,8 @@ def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
     except Exception as e:
         raise ConfigurationError(f"Error loading models from models.yaml: {e}")
 
-    # Load user models.yaml if it exists
-    user_config_path = Path(user_config_dir("llm_cli")) / "models.yaml"
+    # Ensure user config exists and load it
+    user_config_path = _ensure_user_config()
     user_config = {}
     if user_config_path.exists():
         try:
@@ -59,13 +79,19 @@ def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
                 else:
                     merged_config[section_name] = section_data
 
-        # User aliases completely override package aliases
+        # Merge aliases (user overrides specific aliases, preserves others)
         if "aliases" in user_config:
-            merged_config["aliases"] = user_config["aliases"]
+            if "aliases" not in merged_config:
+                merged_config["aliases"] = {}
+            merged_config["aliases"].update(user_config["aliases"])
 
     # Load all models from all provider sections dynamically
     for section_name, section_data in merged_config.items():
         if section_name == "aliases":
+            continue
+
+        # Skip top-level keys starting with _ (YAML anchors, metadata, etc.)
+        if section_name.startswith("_"):
             continue
 
         # Each top-level section (except aliases) is a provider

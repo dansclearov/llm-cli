@@ -52,7 +52,10 @@ class LLMClient:
         if options.enable_thinking and not capabilities.supports_thinking:
             options.enable_thinking = False
 
-        model_settings = dict(options.extra_settings)
+        # Start with extra_params from model config, then override with request-specific settings
+        model_settings = dict(capabilities.extra_params)
+        model_settings.update(options.extra_settings)
+
         if options.enable_thinking:
             if provider_name in {"openai", "openai-responses"}:
                 model_settings.setdefault("openai_reasoning_summary", "detailed")

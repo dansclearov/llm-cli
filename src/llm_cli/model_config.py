@@ -28,10 +28,20 @@ def load_model_capabilities() -> Dict[str, Dict[str, Dict[str, Any]]]:
                 user_config_data = yaml.safe_load(file) or {}
                 # Deep merge user config into base config
                 for provider, models in user_config_data.items():
+                    if provider.startswith("_"):  # Skip anchors
+                        continue
                     if provider not in base_config:
                         base_config[provider] = {}
                     if isinstance(models, dict):
-                        base_config[provider].update(models)
+                        # Merge at model level too
+                        for model_id, model_config in models.items():
+                            if model_id not in base_config[provider]:
+                                base_config[provider][model_id] = {}
+                            if isinstance(model_config, dict):
+                                # Merge model properties
+                                base_config[provider][model_id].update(model_config)
+                            else:
+                                base_config[provider][model_id] = model_config
         except yaml.YAMLError as e:
             raise ConfigurationError(f"Invalid YAML in user config: {e}")
         except Exception as e:

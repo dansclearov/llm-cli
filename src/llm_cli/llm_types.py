@@ -11,6 +11,7 @@ class ModelCapabilities:
     supports_search: bool = False
     supports_thinking: bool = False
     max_tokens: Optional[int] = None
+    extra_params: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

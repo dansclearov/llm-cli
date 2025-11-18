@@ -1,64 +1,28 @@
-# Model capabilities configuration
-# Defaults: supports_search=false, supports_thinking=false, max_tokens=null
-
-# Centralized model aliases
 aliases:
-  # Default model (used when no -m provided)
   default: sonnet
-  
-  # Meaningful aliases only (where alias != model name)
-  sonnet: anthropic/claude-sonnet-4-5-20250929
-  opus: anthropic/claude-opus-4-1-20250805
-  gpt-4o: openai/chatgpt-4o-latest
-  gpt-4.5: openai/gpt-4.5-preview
-  r1: openrouter/deepseek/deepseek-r1-0528
-  r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
-  kimi: moonshotai/kimi-latest
-  kimi-thinking: moonshotai/kimi-k2-thinking
-  qwen3-max: openrouter/qwen/qwen3-max
-  grok-4: openrouter/x-ai/grok-4
+  sonnet: anthropic/claude-sonnet-4-5
+  haiku: anthropic/claude-haiku-4-5
+  opus: anthropic/claude-opus-4-1
+  gpt: openai-responses/gpt-5.1
+  gemini-pro: google-gla/gemini-2.5-pro
+  gemini-flash: google-gla/gemini-2.5-flash
 
 anthropic:
-  claude-sonnet-4-5-20250929:
+  claude-sonnet-4-5:
     supports_search: true
     supports_thinking: true
     max_tokens: 8192
-
-  claude-sonnet-4-20250514:
+  claude-haiku-4-5:
     supports_search: true
     supports_thinking: true
     max_tokens: 8192
-
-  claude-opus-4-1-20250805:
+  claude-opus-4-1:
     supports_search: true
     supports_thinking: true
     max_tokens: 8192
-
-openai:
-  chatgpt-4o-latest: {}
-
-  gpt-4.5-preview: {}
-
-  gpt-4-turbo: {}
 
 openai-responses:
   gpt-5.1:
-    supports_thinking: true
-    supports_search: true
-
-  gpt-5:
-    supports_thinking: true
-    supports_search: true
-  
-  gpt-5-mini:
-    supports_thinking: true
-    supports_search: true
-
-  o4-mini:
-    supports_thinking: true
-    supports_search: true
-
-  o3:
     supports_thinking: true
     supports_search: true
 
@@ -66,69 +30,6 @@ google-gla:
   gemini-2.5-pro:
     supports_thinking: true
     supports_search: true
-
   gemini-2.5-flash:
     supports_thinking: true
     supports_search: true
-
-# OpenRouter quantization configuration (YAML anchor for reuse)
-_openrouter_min_fp8: &openrouter_min_fp8
-  provider:
-    quantizations: ["fp8", "fp16", "bf16", "fp32", "unknown"]
-
-# Search is handled via OpenRouter's `web` plugin + :online model variant (see client)
-openrouter:
-  "deepseek/deepseek-r1-0528:free":
-    supports_thinking: true
-    supports_search: true
-    extra_params:
-      <<: *openrouter_min_fp8
-  
-  deepseek/deepseek-r1-0528:
-    supports_thinking: true
-    supports_search: true
-    extra_params:
-      <<: *openrouter_min_fp8
-
-  x-ai/grok-4:
-    supports_search: true
-
-  qwen/qwen3-max:
-    supports_search: true
-    extra_params:
-      <<: *openrouter_min_fp8
-
-moonshotai:
-  kimi-latest:
-    supports_search: false  # Pydantic AI Moonshot provider lacks built-in search tool hooks
-
-  kimi-k2-thinking:
-    supports_thinking: true
-    supports_search: false
-
-# -------------------------------------------------------------------
-# Reference: provider keys available from pydantic-ai (uncomment to add models)
-# Already defined above: anthropic, openai, openai-responses (OpenAI Responses API),
-# google-gla (Google Gemini), openrouter, moonshotai
-# azure:
-# bedrock:
-# cerebras:
-# cohere:
-# deepseek:
-# fireworks:
-# gateway:
-# github:
-# google:
-# google_vertex:
-# grok:
-# groq:
-# heroku:
-# huggingface:
-# litellm:
-# mistral:
-# nebius:
-# ollama:
-# outlines:
-# ovhcloud:
-# together:
-# vercel:
