@@ -56,74 +56,71 @@ OPENROUTER_API_KEY=your_openrouter_api_key
 
 ### Model Configuration
 
-Models are centrally configured in `src/llm_cli/models.yaml` with user overrides at `~/.config/llm_cli/models.yaml`:
+The default config (`src/llm_cli/models.yaml`) provides minimal, up-to-date models with date-free aliases:
 
 ```yaml
 aliases:
-  default: sonnet                    # Default CLI model (alias)
-  sonnet: anthropic/claude-sonnet-4-5-20250929
-  opus: anthropic/claude-opus-4-1-20250805
-  gpt-4o: openai/chatgpt-4o-latest
-  gpt-4.5: openai/gpt-4.5-preview
-  gpt-5: openai-responses/gpt-5
-  r1: openrouter/deepseek/deepseek-r1-0528
-  r1-free: "openrouter/deepseek/deepseek-r1-0528:free"
-  kimi: moonshotai/kimi-latest
-  kimi-thinking: moonshotai/kimi-k2-thinking
-  qwen3-max: openrouter/qwen/qwen3-max
-  grok-4: openrouter/x-ai/grok-4
+  default: sonnet
+  sonnet: anthropic/claude-sonnet-4-5
+  haiku: anthropic/claude-haiku-4-5
+  opus: anthropic/claude-opus-4-1
+  gpt: openai-responses/gpt-5.1
+  gemini-pro: google-gla/gemini-2.5-pro
+  gemini-flash: google-gla/gemini-2.5-flash
 
 anthropic:
-  claude-sonnet-4-5-20250929:
+  claude-sonnet-4-5:
     supports_search: true
     supports_thinking: true
     max_tokens: 8192
+  # ... other models
 
 openai-responses:
-  gpt-5:
-    supports_search: true
+  gpt-5.1:
     supports_thinking: true
-
-google-gla:                      # Gemini
-  gemini-2.5-pro:
     supports_search: true
-    supports_thinking: true
+```
 
+**User Configuration:**
+
+On first run, a comprehensive `~/.config/llm_cli/models.yaml` is auto-generated with commented examples. This file **merges** with the default config (doesn't replace it):
+
+```yaml
+# Add custom aliases
+aliases:
+  r1: openrouter/deepseek/deepseek-r1-0528
+  kimi: moonshotai/kimi-latest
+
+# Add new models or override defaults
+anthropic:
+  claude-sonnet-4-5:
+    extra_params:  # Merges with default properties
+      custom_setting: value
+
+# YAML anchors (use _ prefix to prevent treating as provider)
 _openrouter_min_fp8: &openrouter_min_fp8
   provider:
     quantizations: ["fp8", "fp16", "bf16", "fp32", "unknown"]
 
 openrouter:
-  "deepseek/deepseek-r1-0528:free":
-    supports_search: true
-    supports_thinking: true
-    extra_params:
-      <<: *openrouter_min_fp8
-
   deepseek/deepseek-r1-0528:
-    supports_search: true
     supports_thinking: true
-    extra_params:
-      <<: *openrouter_min_fp8
-
-  x-ai/grok-4:
-    supports_search: true
-
-  qwen/qwen3-max:
     supports_search: true
     extra_params:
       <<: *openrouter_min_fp8
-
-moonshotai:
-  kimi-latest:
-    supports_search: false   # Moonshot provider doesn't expose the built-in WebSearchTool
-
-  kimi-k2-thinking:
-    supports_search: false
-    supports_thinking: true
 ```
 
-Reasoning-focused OpenAI models (e.g., `gpt-5`, `o3`, `o4-mini`) should live under the `openai-responses` provider section so Pydantic AI routes them through the Responses API and can surface their thinking traces. Likewise, Gemini models should be listed under `google-gla`/`google-vertex`, xAI/DeepSeek via OpenRouter should stay under `openrouter`, and Kimi models should use the `moonshotai` provider so the right client (and associated features like thinking/search) is used.
+**Key Features:**
+- **Deep merge**: Override specific properties without repeating defaults
+- **Auto-generated user config**: Comprehensive template created on first run
+- **YAML anchors**: Use `_` prefix for anchors/metadata (e.g., `_openrouter_min_fp8`)
+- **extra_params**: Provider-specific settings (OpenRouter quantization, OpenAI reasoning effort, etc.)
+
+**Provider Routing:**
+- Reasoning models (`gpt-5`, `o3`, `o4-mini`) → `openai-responses` (Responses API)
+- Gemini → `google-gla` or `google-vertex`
+- OpenRouter models → `openrouter`
+- Kimi → `moonshotai`
 
 ### Configuration Locations
 
@@ -223,13 +220,15 @@ q, Ctrl+C             Quit selector
 ## 📁 Supported Providers
 
 **Default models included:**
-- **OpenAI**: GPT-4o, GPT-4.5 preview, GPT-5 (Responses API for thinking/search)
-- **Anthropic**: Claude 4.5 Sonnet, Claude 4.1 Opus
+- **Anthropic**: Claude Sonnet 4.5, Haiku 4.5, Opus 4.1 (date-free aliases)
+- **OpenAI**: GPT-5.1 (Responses API for thinking/search)
 - **Gemini**: 2.5 Pro/Flash
+
+**Additional models** (add via `~/.config/llm_cli/models.yaml`):
+- **OpenAI**: GPT-4o, GPT-4.5 preview, other reasoning models
 - **Moonshot**: Kimi Latest, Kimi Thinking Preview
 - **OpenRouter**: DeepSeek R1 (free/paid), xAI Grok-4, Qwen3 Max
-
-*Add any model from these providers via `models.yaml` configuration.*
+- Any model from supported providers
 
 ### Capability Matrix
 

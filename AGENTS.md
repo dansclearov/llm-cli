@@ -78,9 +78,12 @@ Supports OpenAI, Anthropic, DeepSeek, Google Gemini, xAI, and OpenRouter through
 - Cross-provider aliases supported
 
 **Model Configuration:**
-- **Single source of truth**: `models.yaml` contains all models, capabilities, and aliases
-- Per-model settings: max_tokens, supports_search, supports_thinking
-- User can override with `~/.config/llm_cli/models.yaml`
+- **Minimal default config**: `src/llm_cli/models.yaml` contains only latest SOTA models with date-free aliases
+- **Auto-generated user config**: `~/.config/llm_cli/models.yaml` created on first run from `models_template.yaml`
+- **Deep merge**: User config merges with defaults at model property level (can add just `extra_params` without repeating all capabilities)
+- **YAML anchors**: Top-level keys starting with `_` are ignored (prevents anchors from being treated as providers)
+- **extra_params support**: Model-specific settings (OpenRouter quantization, OpenAI `openai_reasoning_effort`, etc.) merged into `model_settings` before API calls
+- Per-model settings: `max_tokens`, `supports_search`, `supports_thinking`, `extra_params`
 
 **Configuration & Prompts:**
 Dual-location system:
