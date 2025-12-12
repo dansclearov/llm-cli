@@ -3,7 +3,7 @@ aliases:
   sonnet: anthropic/claude-sonnet-4-5
   haiku: anthropic/claude-haiku-4-5
   opus: anthropic/claude-opus-4-5
-  gpt: openai-responses/gpt-5.1
+  gpt: openai-responses/gpt-5.2
   gemini-pro: google-gla/gemini-3-pro-preview
   gemini-flash: google-gla/gemini-2.5-flash
 
@@ -22,7 +22,7 @@ anthropic:
     max_tokens: 8192
 
 openai-responses:
-  gpt-5.1:
+  gpt-5.2:
     supports_thinking: true
     supports_search: true
 
