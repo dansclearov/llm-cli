@@ -67,9 +67,13 @@ class TestLoadModelsAndAliases:
                     assert "gpt-4o" in model_map
                     assert "claude-3-5-sonnet" in model_map
 
-                    # User aliases should override package aliases
-                    assert "smart" in model_map
-                    assert "fast" not in model_map  # Package alias overridden
+                    # User aliases should be merged with package aliases
+                    assert "smart" in model_map  # User alias added
+                    assert "fast" in model_map  # Package alias preserved
+                    assert model_map["fast"] == (
+                        "openai",
+                        "gpt-4o",
+                    )  # Still points to package model
 
                     # Default should be from user config
                     assert default_model == "claude-3-5-sonnet"

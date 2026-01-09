@@ -6,6 +6,7 @@ from pydantic_ai.builtin_tools import WebSearchTool
 from pydantic_ai.direct import model_request_stream
 from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai.models import ModelRequestParameters
+from pydantic_ai.settings import ModelSettings
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from llm_cli.llm_types import ChatOptions, ModelCapabilities
@@ -79,7 +80,7 @@ class LLMClient:
                 provider_name, provider_model_id, model_settings
             )
 
-        model_settings_param = model_settings or None
+        model_settings_param = ModelSettings(model_settings) if model_settings else None
         request_parameters = self._build_request_parameters(
             provider_name,
             provider_model_id,
@@ -125,7 +126,7 @@ class LLMClient:
         self,
         model_name: str,
         model_messages: List[ModelMessage],
-        model_settings: Optional[dict],
+        model_settings: Optional[ModelSettings],
         request_parameters: ModelRequestParameters,
         handler: ResponseHandler,
     ) -> ModelResponse:

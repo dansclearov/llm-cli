@@ -70,7 +70,13 @@ def flatten_history(messages: Sequence[ModelMessage]) -> List[Tuple[str, str]]:
         if isinstance(message, ModelRequest):
             for part in message.parts:
                 if isinstance(part, UserPromptPart) and part.content:
-                    history.append(("user", part.content))
+                    # Handle both str and Sequence[UserContent] types
+                    content_str = (
+                        part.content
+                        if isinstance(part.content, str)
+                        else str(part.content)
+                    )
+                    history.append(("user", content_str))
         elif isinstance(message, ModelResponse):
             text = "".join(
                 part.content

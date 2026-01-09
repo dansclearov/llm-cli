@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Optional, Sequence
 
 from pydantic_ai.messages import (
     BuiltinToolCallPart,
@@ -146,7 +146,7 @@ class ResponseHandler:
     def _should_suppress_tool(self, tool_name: Optional[str]) -> bool:
         return False
 
-    def _extract_text(self, parts: list[ModelResponsePart]) -> str:
+    def _extract_text(self, parts: Sequence[ModelResponsePart]) -> str:
         """Fallback text extraction when no stream deltas were emitted."""
         return "".join(
             part.content
