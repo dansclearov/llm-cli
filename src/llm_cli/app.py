@@ -31,7 +31,7 @@ from llm_cli.core.message_utils import (
     latest_system_prompt,
 )
 from llm_cli.core.session import Chat
-from llm_cli.exceptions import ChatNotFoundError
+from llm_cli.exceptions import ChatNotFoundError, PromptNotFoundError
 from llm_cli.prompts import read_system_message_from_file
 from llm_cli.llm_types import ChatOptions
 from llm_cli.ui.input_handler import InputHandler
@@ -114,7 +114,7 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
                 print(f"Loaded chat: {current_chat.metadata.title}")
             except (ChatNotFoundError, FileNotFoundError):
                 print(f"Chat not found: {args.resume}")
-                return None
+                sys.exit(1)
         else:  # No ID provided, show selector
             current_chat = chat_manager.interactive_chat_selection()
             if current_chat is None:
@@ -168,9 +168,13 @@ def run_chat_loop(
     while True:
         try:
             user_input = input_handler.get_user_input()
+            normalized_input = user_input.strip()
+
+            if not normalized_input:
+                continue
 
             # Handle slash commands
-            if user_input.startswith("/vim"):
+            if normalized_input.startswith("/vim"):
                 config.vim_mode = not config.vim_mode
                 update_user_config("vim_mode", config.vim_mode)
                 continue
@@ -230,9 +234,13 @@ def main():
         print_user_paths()
         return
 
-    config, chat_manager, llm_client, input_handler, chat_options, prompt_str = (
-        setup_configuration(args, registry)
-    )
+    try:
+        config, chat_manager, llm_client, input_handler, chat_options, prompt_str = (
+            setup_configuration(args, registry)
+        )
+    except PromptNotFoundError as e:
+        print(e)
+        sys.exit(2)
 
     # Handle chat selection/loading
     current_chat = handle_chat_selection(args, chat_manager)

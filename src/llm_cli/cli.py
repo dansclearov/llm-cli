@@ -1,15 +1,19 @@
 import argparse
+
+from llm_cli.prompts import get_prompts
 from llm_cli.registry import ModelRegistry
 
 
 def parse_arguments(registry: ModelRegistry) -> argparse.Namespace:
     """Parse command line arguments."""
     available_models = registry.get_display_models()
+    available_prompts = sorted(set(get_prompts() + ["general"]))
 
     parser = argparse.ArgumentParser(description="Run an interactive LLM chat session.")
     parser.add_argument(
         "prompt",
         nargs="?",
+        choices=available_prompts,
         default="general",
         help="Specify the initial prompt for the chat session",
     )

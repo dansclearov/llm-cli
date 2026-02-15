@@ -112,7 +112,7 @@ def build_prompt(system_prompt: Optional[str], user_prompt: str) -> List[ModelMe
     parts = []
     if system_prompt:
         parts.append(SystemPromptPart(system_prompt))
-        parts.append(UserPromptPart(user_prompt))
+    parts.append(UserPromptPart(user_prompt))
     return [ModelRequest(parts=parts)]
 
 

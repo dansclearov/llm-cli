@@ -1,6 +1,7 @@
 import yaml
 from unittest.mock import patch, mock_open
 import pytest
+from importlib import resources
 
 from llm_cli.config.loaders import load_models_and_aliases
 from llm_cli.exceptions import ConfigurationError
@@ -168,3 +169,24 @@ class TestLoadModelsAndAliases:
                     assert "gpt-4o" in model_map
                     assert "gpt-3.5-turbo" in model_map
                     assert "claude-3" in model_map
+
+    def test_package_alias_targets_exist(self):
+        with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
+            config = yaml.safe_load(f) or {}
+
+        providers = {
+            key: value
+            for key, value in config.items()
+            if key != "aliases" and not key.startswith("_") and isinstance(value, dict)
+        }
+        aliases = config.get("aliases", {})
+
+        for alias_name, model_spec in aliases.items():
+            if alias_name == "default":
+                continue
+            if "/" not in model_spec:
+                continue
+
+            provider_name, model_id = model_spec.split("/", 1)
+            assert provider_name in providers
+            assert model_id in providers[provider_name]

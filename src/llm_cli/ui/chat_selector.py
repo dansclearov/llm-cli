@@ -1,16 +1,12 @@
 """Interactive chat selection UI.
 
 This module provides cross-platform keyboard input handling:
-- Windows: NOT SUPPORTED - uses termios/tty which are Unix-only
+- Windows: Uses msvcrt for single-key input
 - Unix/Linux/macOS: Uses termios/tty for raw terminal input
 - Rich console output works consistently across all platforms
-
-TODO: Add Windows support using msvcrt for raw input handling.
 """
 
 import sys
-import termios
-import tty
 from typing import List, Optional
 
 from rich.console import Console
@@ -91,29 +87,13 @@ class ChatSelector:
 
             return "\n".join(output)
 
-        def get_key():
-            """Get a single keypress."""
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            try:
-                tty.setcbreak(fd)
-                key = sys.stdin.read(1)
-
-                # Handle escape sequences (arrow keys)
-                if key == "\x1b":
-                    key += sys.stdin.read(2)
-
-                return key
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
         try:
             with Live(
                 render_selection(), console=self.console, refresh_per_second=10
             ) as live:
                 while True:
                     page_chats = get_current_page_chats()
-                    key = get_key()
+                    key = self._read_key()
 
                     if key in NAVIGATION_KEYS["UP"]:
                         if selected_index > 0:
@@ -148,7 +128,7 @@ class ChatSelector:
 
                     elif key == NAVIGATION_KEYS["DELETE"]:
                         # Wait for second 'd'
-                        second_key = get_key()
+                        second_key = self._read_key()
                         if second_key == NAVIGATION_KEYS["DELETE"]:
                             # Delete the selected chat
                             selected_chat = page_chats[selected_index]
@@ -172,6 +152,61 @@ class ChatSelector:
 
         except KeyboardInterrupt:
             return None
+
+    def _read_key(self) -> str:
+        """Read one key from stdin across supported platforms."""
+        if sys.platform == "win32":
+            return self._read_key_windows()
+        return self._read_key_unix()
+
+    def _read_key_windows(self) -> str:
+        """Read a single keypress using Windows msvcrt semantics."""
+        import msvcrt
+
+        read_wide = getattr(msvcrt, "getwch", None)
+        read_byte = getattr(msvcrt, "getch")
+
+        def read_key() -> str:
+            if read_wide is not None:
+                return read_wide()
+            key_data = read_byte()
+            if isinstance(key_data, bytes):
+                return key_data.decode("utf-8", errors="ignore")
+            return key_data
+
+        key = read_key()
+        if key in {"\x00", "\xe0"}:
+            # Arrow/function keys emit a two-char sequence.
+            key = read_key()
+            if key == "H":
+                return "\x1b[A"  # Up
+            if key == "P":
+                return "\x1b[B"  # Down
+            return ""
+
+        if key == "\x03":
+            raise KeyboardInterrupt()
+
+        return key
+
+    def _read_key_unix(self) -> str:
+        """Read a single keypress using Unix termios/tty raw mode."""
+        import termios
+        import tty
+
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            key = sys.stdin.read(1)
+
+            # Handle escape sequences (arrow keys)
+            if key == "\x1b":
+                key += sys.stdin.read(2)
+
+            return key
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     def _delete_chat(self, chat_id: str) -> None:
         """Delete a chat by moving it to trash."""

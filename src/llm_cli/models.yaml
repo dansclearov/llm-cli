@@ -30,6 +30,6 @@ google-gla:
   gemini-3-pro-preview:
     supports_thinking: true
     supports_search: true
-  gemini-2.5-flash:
+  gemini-3-flash-preview:
     supports_thinking: true
     supports_search: true
