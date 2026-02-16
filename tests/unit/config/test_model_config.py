@@ -1,7 +1,5 @@
 from unittest.mock import patch
 
-import yaml
-
 from llm_cli.model_config import (
     clear_model_capabilities_cache,
     get_model_capabilities,
@@ -10,30 +8,26 @@ from llm_cli.model_config import (
 
 
 def test_load_model_capabilities_caches_yaml_reads():
-    package_config = {
+    merged_config = {
         "openai": {
             "gpt-4o": {
                 "supports_search": True,
             }
-        }
+        },
+        "aliases": {"default": "openai/gpt-4o"},
     }
 
     clear_model_capabilities_cache()
     try:
-        with patch("llm_cli.model_config.resources.files") as mock_files:
-            with patch("llm_cli.model_config.Path.exists", return_value=False):
-                with patch(
-                    "llm_cli.model_config.yaml.safe_load", wraps=yaml.safe_load
-                ) as mock_safe_load:
-                    mock_files.return_value.joinpath.return_value.open.return_value.__enter__.return_value = yaml.dump(
-                        package_config
-                    )
+        with patch(
+            "llm_cli.model_config.load_merged_model_config", return_value=merged_config
+        ) as mock_load:
+            first = load_model_capabilities()
+            second = load_model_capabilities()
 
-                    first = load_model_capabilities()
-                    second = load_model_capabilities()
-
-                    assert first == second
-                    assert mock_safe_load.call_count == 1
+            assert first == second
+            assert "aliases" not in first
+            assert mock_load.call_count == 1
     finally:
         clear_model_capabilities_cache()
 

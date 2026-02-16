@@ -11,15 +11,12 @@ anthropic:
   claude-sonnet-4-5:
     supports_search: true
     supports_thinking: true
-    max_tokens: 8192
   claude-haiku-4-5:
     supports_search: true
     supports_thinking: true
-    max_tokens: 8192
   claude-opus-4-6:
     supports_search: true
     supports_thinking: true
-    max_tokens: 8192
 
 openai-responses:
   gpt-5.2:

@@ -42,7 +42,7 @@ class InputHandler:
                 vi_mode=vim_mode,
                 cursor=cursor_config,
             )
-            return user_input.strip()
+            return user_input
         except KeyboardInterrupt:
             raise
         except EOFError:

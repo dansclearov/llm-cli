@@ -1,16 +1,13 @@
 openai:
   gpt-4o:
-    max_tokens: 4096
     supports_search: false
     supports_thinking: false
   o1-preview:
-    max_tokens: 32768
     supports_search: false
     supports_thinking: true
 
 anthropic:
   claude-3-5-sonnet-20241022:
-    max_tokens: 8192
     supports_search: false
     supports_thinking: false
 

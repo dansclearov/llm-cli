@@ -35,7 +35,6 @@ class ChatMetadata:
     updated_at: datetime
     model: str
     message_count: int
-    preview: str  # First user message preview
     smart_title_generated: bool = False
 
     def to_dict(self) -> Dict:
@@ -46,7 +45,6 @@ class ChatMetadata:
             "updated_at": self.updated_at.isoformat(),
             "model": self.model,
             "message_count": self.message_count,
-            "preview": self.preview,
             "smart_title_generated": self.smart_title_generated,
         }
 
@@ -59,7 +57,6 @@ class ChatMetadata:
             updated_at=datetime.fromisoformat(data["updated_at"]),
             model=data["model"],
             message_count=data["message_count"],
-            preview=data["preview"],
             smart_title_generated=data.get("smart_title_generated", False),
         )
 

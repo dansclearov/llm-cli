@@ -12,7 +12,6 @@ class TestLoadModelsAndAliases:
         package_config = {
             "openai": {
                 "gpt-4o": {
-                    "max_tokens": 4096,
                     "supports_search": False,
                     "supports_thinking": False,
                 }
@@ -41,12 +40,12 @@ class TestLoadModelsAndAliases:
 
     def test_load_with_user_override(self):
         package_config = {
-            "openai": {"gpt-4o": {"max_tokens": 4096}},
+            "openai": {"gpt-4o": {"supports_search": False}},
             "aliases": {"default": "openai/gpt-4o", "fast": "openai/gpt-4o"},
         }
 
         user_config = {
-            "anthropic": {"claude-3-5-sonnet": {"max_tokens": 8192}},
+            "anthropic": {"claude-3-5-sonnet": {"supports_thinking": True}},
             "aliases": {
                 "default": "anthropic/claude-3-5-sonnet",
                 "smart": "anthropic/claude-3-5-sonnet",
@@ -143,15 +142,34 @@ class TestLoadModelsAndAliases:
                 # Invalid alias should be ignored
                 assert "invalid-alias" not in model_map
 
+    def test_default_model_parsing_keeps_nested_model_id(self):
+        config = {
+            "openrouter": {"deepseek/deepseek-r1-0528": {}},
+            "aliases": {"default": "openrouter/deepseek/deepseek-r1-0528"},
+        }
+
+        with patch("llm_cli.config.loaders.resources.files") as mock_files:
+            with patch("llm_cli.config.loaders.Path.exists", return_value=False):
+                mock_files.return_value.joinpath.return_value.open.return_value.__enter__.return_value = yaml.dump(
+                    config
+                )
+
+                model_map, default_model = load_models_and_aliases()
+
+                assert default_model == "deepseek/deepseek-r1-0528"
+                assert default_model in model_map
+
     def test_merge_provider_sections(self):
         package_config = {
-            "openai": {"gpt-4o": {"max_tokens": 4096}},
+            "openai": {"gpt-4o": {"supports_search": False}},
             "aliases": {"default": "openai/gpt-4o"},
         }
 
         user_config = {
-            "openai": {"gpt-3.5-turbo": {"max_tokens": 2048}},  # Extends openai section
-            "anthropic": {"claude-3": {"max_tokens": 8192}},  # New section
+            "openai": {
+                "gpt-3.5-turbo": {"supports_search": False}
+            },  # Extends openai section
+            "anthropic": {"claude-3": {"supports_thinking": True}},  # New section
         }
 
         with patch("llm_cli.config.loaders.resources.files") as mock_files:

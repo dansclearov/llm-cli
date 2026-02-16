@@ -1,5 +1,6 @@
 """Chat management with auto-save and smart title generation."""
 
+import json
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -35,7 +36,6 @@ class ChatManager:
             updated_at=datetime.now(),
             model=model,
             message_count=0,
-            preview="New chat",
         )
 
         chat = Chat(metadata=metadata)
@@ -50,17 +50,33 @@ class ChatManager:
             return []
 
         chats = []
-        for chat_folder in chat_dir.iterdir():
+        try:
+            chat_folders = list(chat_dir.iterdir())
+        except OSError as exc:
+            self.console.print(
+                f"[dim]Unable to read chat directory {chat_dir}: {exc}[/dim]"
+            )
+            return []
+
+        for chat_folder in chat_folders:
             if chat_folder.is_dir():
                 try:
                     metadata_file = chat_folder / "metadata.json"
                     if metadata_file.exists():
-                        import json
-
                         with open(metadata_file, "r") as f:
                             metadata = ChatMetadata.from_dict(json.load(f))
                             chats.append(metadata)
-                except Exception:
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                    KeyError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    self.console.print(
+                        "[dim]Skipping unreadable chat metadata in "
+                        f"{chat_folder.name}: {type(exc).__name__}[/dim]"
+                    )
                     # Skip corrupted chat folders
                     continue
 
@@ -120,11 +136,21 @@ class ChatManager:
             if new_title and new_title != chat.metadata.title:
                 chat.metadata.title = new_title
 
-            # Mark as generated regardless of success/failure
-            chat.metadata.smart_title_generated = True
-            chat.save()
+            self._mark_title_generation_attempted(chat)
+        except KeyboardInterrupt:
+            raise
+        except (OSError, RuntimeError, TimeoutError, TypeError, ValueError) as exc:
+            self.console.print(
+                f"[dim]Smart title generation skipped: {type(exc).__name__}[/dim]"
+            )
+            self._mark_title_generation_attempted(chat)
 
-        except Exception:
-            # If title generation fails, mark as attempted so we don't retry
-            chat.metadata.smart_title_generated = True
+    def _mark_title_generation_attempted(self, chat: Chat) -> None:
+        """Persist that smart-title generation has been attempted."""
+        chat.metadata.smart_title_generated = True
+        try:
             chat.save()
+        except OSError as exc:
+            self.console.print(
+                f"[dim]Could not persist smart-title status: {type(exc).__name__}[/dim]"
+            )

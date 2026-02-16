@@ -138,6 +138,7 @@ def run_chat_loop(
     chat_options: ChatOptions,
     prompt_str: str,
     config: Config,
+    active_model: str,
     is_new_chat: bool = False,
 ) -> None:
     """Run the main chat interaction loop."""
@@ -184,7 +185,7 @@ def run_chat_loop(
 
             finished = False
             model_response = llm_client.chat(
-                current_chat.messages, args.model, chat_options
+                current_chat.messages, active_model, chat_options
             )
             current_chat.append_assistant_response(model_response)
 
@@ -211,7 +212,9 @@ def run_chat_loop(
                 and not current_chat.metadata.smart_title_generated
             )
             if should_generate_title:
-                chat_manager.generate_smart_title(current_chat, llm_client, args.model)
+                chat_manager.generate_smart_title(
+                    current_chat, llm_client, active_model
+                )
 
             finished = True
 
@@ -250,6 +253,12 @@ def main():
         # Create new chat
         current_chat = chat_manager.create_new_chat(args.model, prompt_str)
         is_new_chat = True
+    active_model = args.model if is_new_chat else current_chat.metadata.model
+    if not is_new_chat and args.model != active_model:
+        print(
+            f"Resumed chat locked to its original model: {active_model} "
+            f"(ignoring --model {args.model})"
+        )
 
     # Show continuation message for existing chats
     if not is_new_chat and current_chat.metadata.message_count > 2:
@@ -268,6 +277,7 @@ def main():
         chat_options,
         prompt_str,
         config,
+        active_model,
         is_new_chat,
     )
 

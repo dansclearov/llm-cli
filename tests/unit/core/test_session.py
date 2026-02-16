@@ -18,7 +18,6 @@ class TestChatMetadata:
             updated_at=now,
             model="gpt-4o",
             message_count=2,
-            preview="Hello world",
             smart_title_generated=False,
         )
 
@@ -26,7 +25,6 @@ class TestChatMetadata:
         assert metadata.title == "Test Chat"
         assert metadata.model == "gpt-4o"
         assert metadata.message_count == 2
-        assert metadata.preview == "Hello world"
         assert not metadata.smart_title_generated
 
     def test_to_dict(self):
@@ -38,7 +36,6 @@ class TestChatMetadata:
             updated_at=now,
             model="gpt-4o",
             message_count=2,
-            preview="Hello world",
         )
 
         data = metadata.to_dict()
@@ -46,7 +43,6 @@ class TestChatMetadata:
         assert data["title"] == "Test Chat"
         assert data["model"] == "gpt-4o"
         assert data["message_count"] == 2
-        assert data["preview"] == "Hello world"
         assert "created_at" in data
         assert "updated_at" in data
 
@@ -67,8 +63,8 @@ class TestChatMetadata:
         assert metadata.title == "Test Chat"
         assert metadata.model == "gpt-4o"
         assert metadata.message_count == 2
-        assert metadata.preview == "Hello world"
         assert metadata.smart_title_generated
+        assert not hasattr(metadata, "preview")
 
 
 class TestChat:
@@ -80,7 +76,6 @@ class TestChat:
             updated_at=datetime.now(),
             model="gpt-4o",
             message_count=2,
-            preview="Hello",
         )
 
         chat = Chat(metadata=metadata)
@@ -97,7 +92,6 @@ class TestChat:
             updated_at=datetime.now(),
             model="gpt-4o",
             message_count=0,
-            preview="",
         )
 
         chat = Chat(metadata=metadata, messages=[])
@@ -111,7 +105,6 @@ class TestChat:
             updated_at=datetime.now(),
             model="gpt-4o",
             message_count=0,
-            preview="",
         )
 
         chat = Chat(metadata=metadata)
@@ -136,7 +129,6 @@ class TestChat:
                     updated_at=datetime.now(),
                     model="gpt-4o",
                     message_count=2,
-                    preview="Hello",
                 )
 
                 chat = Chat(metadata=metadata)

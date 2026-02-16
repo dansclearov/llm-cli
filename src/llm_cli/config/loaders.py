@@ -1,8 +1,9 @@
 """Configuration loaders for model registry."""
 
+import copy
 from importlib import resources
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import yaml
 from platformdirs import user_config_dir
@@ -31,8 +32,94 @@ def _ensure_user_config() -> Path:
     return user_config_path
 
 
+def _deep_merge_models_section(
+    package_section: Dict[str, Any], user_section: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Deep-merge model configs inside one provider section."""
+    merged_section = copy.deepcopy(package_section)
+
+    for model_id, model_config in user_section.items():
+        package_model_config = merged_section.get(model_id)
+        if isinstance(package_model_config, dict) and isinstance(model_config, dict):
+            package_model_config.update(model_config)
+        else:
+            merged_section[model_id] = copy.deepcopy(model_config)
+
+    return merged_section
+
+
+def _merge_model_configs(
+    package_config: Dict[str, Any], user_config: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Merge package + user model configs with alias override semantics."""
+    merged_config = copy.deepcopy(package_config)
+
+    for section_name, section_data in user_config.items():
+        if section_name.startswith("_"):
+            continue
+
+        if section_name == "aliases":
+            if isinstance(section_data, dict):
+                package_aliases = merged_config.get("aliases")
+                if not isinstance(package_aliases, dict):
+                    package_aliases = {}
+                package_aliases.update(section_data)
+                merged_config["aliases"] = package_aliases
+            continue
+
+        if not isinstance(section_data, dict):
+            merged_config[section_name] = copy.deepcopy(section_data)
+            continue
+
+        package_section = merged_config.get(section_name)
+        if isinstance(package_section, dict):
+            merged_config[section_name] = _deep_merge_models_section(
+                package_section, section_data
+            )
+        else:
+            merged_config[section_name] = copy.deepcopy(section_data)
+
+    return merged_config
+
+
+def load_merged_model_config() -> Dict[str, Any]:
+    """Load and merge package + user models.yaml configuration."""
+    try:
+        with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
+            package_config = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        raise ConfigurationError("models.yaml not found")
+    except yaml.YAMLError as e:
+        raise ConfigurationError(f"Invalid YAML in models.yaml: {e}")
+    except Exception as e:
+        raise ConfigurationError(f"Error loading models from models.yaml: {e}")
+
+    if not isinstance(package_config, dict):
+        raise ConfigurationError("Invalid models.yaml: top-level mapping required")
+
+    user_config_path = _ensure_user_config()
+    user_config: Dict[str, Any] = {}
+    if user_config_path.exists():
+        try:
+            with open(user_config_path, "r") as f:
+                loaded_user_config = yaml.safe_load(f) or {}
+                if not isinstance(loaded_user_config, dict):
+                    raise ConfigurationError(
+                        "Invalid user models.yaml: top-level mapping required"
+                    )
+                user_config = loaded_user_config
+        except ConfigurationError:
+            raise
+        except yaml.YAMLError as e:
+            raise ConfigurationError(f"Invalid YAML in user models.yaml: {e}")
+        except Exception as e:
+            raise ConfigurationError(f"Error loading user models.yaml: {e}")
+
+    return _merge_model_configs(package_config, user_config)
+
+
 def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
-    """Load models and aliases from models.yaml file.
+    """Load model map and default alias from merged models.yaml config.
 
     Loads package models.yaml first, then merges with user models.yaml if it exists.
     User config takes precedence for aliases and default model.
@@ -43,47 +130,7 @@ def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
     model_map = {}
     default_model = DEFAULT_FALLBACK_MODEL  # fallback default
 
-    # Load package models.yaml
-    try:
-        with resources.files("llm_cli").joinpath("models.yaml").open("r") as f:
-            config = yaml.safe_load(f)
-    except FileNotFoundError:
-        raise ConfigurationError("models.yaml not found")
-    except yaml.YAMLError as e:
-        raise ConfigurationError(f"Invalid YAML in models.yaml: {e}")
-    except Exception as e:
-        raise ConfigurationError(f"Error loading models from models.yaml: {e}")
-
-    # Ensure user config exists and load it
-    user_config_path = _ensure_user_config()
-    user_config = {}
-    if user_config_path.exists():
-        try:
-            with open(user_config_path, "r") as f:
-                user_config = yaml.safe_load(f) or {}
-        except yaml.YAMLError as e:
-            raise ConfigurationError(f"Invalid YAML in user models.yaml: {e}")
-        except Exception as e:
-            raise ConfigurationError(f"Error loading user models.yaml: {e}")
-
-    # Merge configurations (user overrides package)
-    merged_config = config.copy()
-    if user_config:
-        # Merge provider sections (user models extend package models)
-        for section_name, section_data in user_config.items():
-            if section_name == "aliases":
-                continue
-            if isinstance(section_data, dict):
-                if section_name in merged_config:
-                    merged_config[section_name].update(section_data)
-                else:
-                    merged_config[section_name] = section_data
-
-        # Merge aliases (user overrides specific aliases, preserves others)
-        if "aliases" in user_config:
-            if "aliases" not in merged_config:
-                merged_config["aliases"] = {}
-            merged_config["aliases"].update(user_config["aliases"])
+    merged_config = load_merged_model_config()
 
     # Load all models from all provider sections dynamically
     for section_name, section_data in merged_config.items():
@@ -104,8 +151,12 @@ def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
     aliases = merged_config.get("aliases", {})
 
     # Set default model
-    if "default" in aliases:
-        default_model = aliases["default"].split("/")[-1]  # Extract model name
+    default_spec = aliases.get("default")
+    if isinstance(default_spec, str):
+        if "/" in default_spec:
+            _, default_model = default_spec.split("/", 1)
+        else:
+            default_model = default_spec
 
     # Load all aliases
     for alias, model_spec in aliases.items():

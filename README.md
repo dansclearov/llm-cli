@@ -74,12 +74,8 @@ Example user overrides:
 
 ```yaml
 aliases:
-  default: sonnet
+  default: r1
   r1: openrouter/deepseek/deepseek-r1-0528
-
-anthropic:
-  claude-sonnet-4-5:
-    max_tokens: 4096
 
 openrouter:
   deepseek/deepseek-r1-0528:
