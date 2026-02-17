@@ -1,6 +1,6 @@
 aliases:
   default: sonnet
-  sonnet: anthropic/claude-sonnet-4-5
+  sonnet: anthropic/claude-sonnet-4-6
   haiku: anthropic/claude-haiku-4-5
   opus: anthropic/claude-opus-4-6
   gpt: openai-responses/gpt-5.2
@@ -8,7 +8,7 @@ aliases:
   gemini-flash: google-gla/gemini-3-flash-preview
 
 anthropic:
-  claude-sonnet-4-5:
+  claude-sonnet-4-6:
     supports_search: true
     supports_thinking: true
   claude-haiku-4-5:
