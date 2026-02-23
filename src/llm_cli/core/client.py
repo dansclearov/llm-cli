@@ -188,6 +188,7 @@ class LLMClient:
             "openai-responses",
             "google-gla",
             "google-vertex",
+            "xai",
         }:
             return True
 
