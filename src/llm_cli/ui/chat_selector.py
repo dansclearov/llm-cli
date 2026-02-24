@@ -6,6 +6,7 @@ This module provides cross-platform keyboard input handling:
 - Rich console output works consistently across all platforms
 """
 
+import json
 import sys
 from typing import List, Optional
 
@@ -20,6 +21,7 @@ from llm_cli.constants import (
     NAVIGATION_KEYS,
 )
 from llm_cli.core.session import Chat, ChatMetadata
+from llm_cli.exceptions import ChatNotFoundError
 
 
 class ChatSelector:
@@ -113,7 +115,29 @@ class ChatSelector:
 
                     elif key in NAVIGATION_KEYS["ENTER"]:
                         selected_chat = page_chats[selected_index]
-                        return Chat.load(selected_chat.id)
+                        try:
+                            return Chat.load(selected_chat.id)
+                        except (
+                            ChatNotFoundError,
+                            OSError,
+                            json.JSONDecodeError,
+                            KeyError,
+                            TypeError,
+                            ValueError,
+                        ) as exc:
+                            self.console.print(
+                                "[dim]Skipping unreadable chat: "
+                                f"{selected_chat.id} ({type(exc).__name__})[/dim]"
+                            )
+                            chats = self._refresh_chat_list(chats, selected_chat.id)
+                            if not chats:
+                                return None
+                            total_pages = (len(chats) + page_size - 1) // page_size
+                            if current_page >= total_pages:
+                                current_page = max(0, total_pages - 1)
+                            page_chats = get_current_page_chats()
+                            if selected_index >= len(page_chats):
+                                selected_index = len(page_chats) - 1
 
                     elif (
                         key in NAVIGATION_KEYS["NEXT_PAGE"]

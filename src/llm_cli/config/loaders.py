@@ -3,7 +3,7 @@
 import copy
 from importlib import resources
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import yaml
 from platformdirs import user_config_dir
@@ -127,7 +127,7 @@ def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
     Returns:
         Tuple of (model_map, default_model)
     """
-    model_map = {}
+    model_map: Dict[str, Tuple[str, str]] = {}
     default_model = DEFAULT_FALLBACK_MODEL  # fallback default
 
     merged_config = load_merged_model_config()
@@ -144,27 +144,86 @@ def load_models_and_aliases() -> Tuple[Dict[str, Tuple[str, str]], str]:
         # Each top-level section (except aliases) is a provider
         if isinstance(section_data, dict):
             for model_id in section_data.keys():
+                existing_mapping = model_map.get(model_id)
+                if existing_mapping and existing_mapping[0] != section_name:
+                    raise ConfigurationError(
+                        "Duplicate model ID "
+                        f"'{model_id}' found in providers '{existing_mapping[0]}' "
+                        f"and '{section_name}'"
+                    )
                 # Register model ID as direct alias
                 model_map[model_id] = (section_name, model_id)
 
     # Load aliases
-    aliases = merged_config.get("aliases", {})
+    aliases_raw = merged_config.get("aliases", {})
+    if aliases_raw is None:
+        aliases: Dict[str, Any] = {}
+    elif isinstance(aliases_raw, dict):
+        aliases = aliases_raw
+    else:
+        raise ConfigurationError("Invalid models.yaml: aliases must be a mapping")
 
     # Set default model
     default_spec = aliases.get("default")
+    default_defined_in_config = default_spec is not None
+    if default_spec is not None and not isinstance(default_spec, str):
+        raise ConfigurationError(
+            "Invalid models.yaml: aliases.default must be a string"
+        )
     if isinstance(default_spec, str):
         if "/" in default_spec:
-            _, default_model = default_spec.split("/", 1)
+            provider_name, model_id = default_spec.split("/", 1)
+            if not provider_name or not model_id:
+                raise ConfigurationError(
+                    f"Invalid default alias target format: {default_spec}"
+                )
+            default_model = model_id
         else:
             default_model = default_spec
 
     # Load all aliases
+    unresolved_aliases: List[Tuple[str, str]] = []
     for alias, model_spec in aliases.items():
         if alias == "default":
             continue
 
+        # Ignore malformed alias entries, but keep loading valid ones.
+        if not isinstance(alias, str) or not isinstance(model_spec, str):
+            continue
+
         if "/" in model_spec:
             provider_name, model_id = model_spec.split("/", 1)
+            if not provider_name or not model_id:
+                continue
             model_map[alias] = (provider_name, model_id)
+        else:
+            unresolved_aliases.append((alias, model_spec))
+
+    # Resolve aliases that point at other aliases/model IDs (without provider prefix).
+    # We iterate to support alias chains.
+    while unresolved_aliases:
+        next_unresolved: List[Tuple[str, str]] = []
+        made_progress = False
+        for alias, model_spec in unresolved_aliases:
+            mapping = model_map.get(model_spec)
+            if mapping is None:
+                next_unresolved.append((alias, model_spec))
+                continue
+            model_map[alias] = mapping
+            made_progress = True
+
+        if not made_progress:
+            break
+        unresolved_aliases = next_unresolved
+
+    if not model_map:
+        raise ConfigurationError("No models found in merged models configuration")
+
+    if default_model not in model_map:
+        if default_defined_in_config:
+            raise ConfigurationError(
+                f"Default model '{default_model}' does not resolve to a configured model"
+            )
+        default_model = next(iter(model_map))
 
     return model_map, default_model

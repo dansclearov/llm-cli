@@ -12,6 +12,7 @@ from llm_cli.config.settings import Config
 from llm_cli.constants import MAX_TITLE_LENGTH
 from llm_cli.core.message_utils import build_prompt, flatten_history, response_text
 from llm_cli.core.session import Chat, ChatMetadata
+from llm_cli.exceptions import ChatNotFoundError
 from llm_cli.llm_types import ChatOptions
 from llm_cli.ui.chat_selector import ChatSelector
 
@@ -86,8 +87,21 @@ class ChatManager:
     def get_last_chat(self) -> Optional[Chat]:
         """Get the most recently updated chat."""
         chats = self.list_chats()
-        if chats:
-            return Chat.load(chats[0].id)  # First item is most recent
+        for chat_metadata in chats:
+            try:
+                return Chat.load(chat_metadata.id)
+            except (
+                ChatNotFoundError,
+                OSError,
+                json.JSONDecodeError,
+                KeyError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                self.console.print(
+                    "[dim]Skipping unreadable chat during --continue: "
+                    f"{chat_metadata.id} ({type(exc).__name__})[/dim]"
+                )
         return None
 
     def interactive_chat_selection(self) -> Optional[Chat]:
@@ -139,7 +153,7 @@ class ChatManager:
             self._mark_title_generation_attempted(chat)
         except KeyboardInterrupt:
             raise
-        except (OSError, RuntimeError, TimeoutError, TypeError, ValueError) as exc:
+        except Exception as exc:
             self.console.print(
                 f"[dim]Smart title generation skipped: {type(exc).__name__}[/dim]"
             )

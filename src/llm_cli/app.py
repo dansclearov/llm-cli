@@ -21,7 +21,7 @@ from llm_cli.constants import (
     USER_COLOR,
     USER_PROMPT,
 )
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, ModelRequest
 
 from llm_cli.core.chat_manager import ChatManager
 from llm_cli.core.client import LLMClient
@@ -167,6 +167,7 @@ def run_chat_loop(
     # Main interaction loop
     finished = True
     while True:
+        pending_user_message = False
         try:
             user_input = input_handler.get_user_input()
             normalized_input = user_input.strip()
@@ -182,12 +183,26 @@ def run_chat_loop(
 
             # Process normal input
             current_chat.append_user_message(user_input)
+            pending_user_message = True
 
             finished = False
-            model_response = llm_client.chat(
-                current_chat.messages, active_model, chat_options
-            )
+            try:
+                model_response = llm_client.chat(
+                    current_chat.messages, active_model, chat_options
+                )
+            except KeyboardInterrupt:
+                _discard_pending_user_message(current_chat)
+                pending_user_message = False
+                raise
+            except Exception as exc:
+                _discard_pending_user_message(current_chat)
+                pending_user_message = False
+                finished = True
+                print(f"Request failed: {type(exc).__name__}: {exc}")
+                continue
+
             current_chat.append_assistant_response(model_response)
+            pending_user_message = False
 
             # Update title after first message
             user_messages = [
@@ -220,11 +235,22 @@ def run_chat_loop(
 
         except KeyboardInterrupt:
             if not finished:
+                if pending_user_message:
+                    _discard_pending_user_message(current_chat)
                 finished = True
                 print("", flush=True)
             else:
                 current_chat.save()  # Final save before exit
                 break
+
+
+def _discard_pending_user_message(current_chat: Chat) -> None:
+    """Drop a trailing user request when generation fails or is interrupted."""
+    if not current_chat.messages:
+        return
+
+    if isinstance(current_chat.messages[-1], ModelRequest):
+        current_chat.messages.pop()
 
 
 def main():

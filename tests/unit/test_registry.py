@@ -79,3 +79,18 @@ class TestModelRegistry:
             assert capabilities.supports_search is True
             assert capabilities.supports_thinking is False
             mock_caps.assert_called_once_with("provider", "model")
+
+    def test_get_display_models_includes_default_model(self):
+        with patch("llm_cli.registry.load_models_and_aliases") as mock_load:
+            mock_load.return_value = (
+                {
+                    "gpt-4o": ("openai", "gpt-4o"),
+                    "fast": ("openai", "gpt-4o"),
+                },
+                "gpt-4o",
+            )
+
+            registry = ModelRegistry()
+            models = registry.get_display_models()
+
+            assert "gpt-4o" in models

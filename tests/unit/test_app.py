@@ -134,3 +134,39 @@ def test_handle_chat_selection_exits_for_missing_explicit_resume(monkeypatch):
         handle_chat_selection(args, chat_manager)
 
     assert cast(SystemExit, exc_info.value).code == 1
+
+
+def test_run_chat_loop_discards_user_message_on_request_error():
+    metadata = ChatMetadata(
+        id="test-chat-error",
+        title="Chat 2026-02-14 00:00",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        model="sonnet",
+        message_count=0,
+    )
+    current_chat = Chat(metadata=metadata)
+
+    args = SimpleNamespace(model="sonnet")
+    chat_manager = Mock()
+    llm_client = Mock()
+    llm_client.chat.side_effect = RuntimeError("upstream failed")
+    input_handler = Mock()
+    input_handler.get_user_input.side_effect = ["Hello", KeyboardInterrupt()]
+    config = Config()
+
+    run_chat_loop(
+        current_chat=current_chat,
+        args=args,
+        chat_manager=chat_manager,
+        llm_client=llm_client,
+        input_handler=input_handler,
+        chat_options=ChatOptions(),
+        prompt_str="You are helpful.",
+        config=config,
+        active_model="sonnet",
+        is_new_chat=True,
+    )
+
+    # Failed requests should not leave orphan user messages behind.
+    assert current_chat.messages == []

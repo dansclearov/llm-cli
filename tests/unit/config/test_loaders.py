@@ -208,3 +208,55 @@ class TestLoadModelsAndAliases:
             provider_name, model_id = model_spec.split("/", 1)
             assert provider_name in providers
             assert model_id in providers[provider_name]
+
+    def test_invalid_aliases_section_type(self):
+        config = {
+            "openai": {"gpt-4o": {}},
+            "aliases": ["not-a-mapping"],
+        }
+
+        with patch("llm_cli.config.loaders.resources.files") as mock_files:
+            with patch("llm_cli.config.loaders.Path.exists", return_value=False):
+                mock_files.return_value.joinpath.return_value.open.return_value.__enter__.return_value = yaml.dump(
+                    config
+                )
+
+                with pytest.raises(ConfigurationError) as exc_info:
+                    load_models_and_aliases()
+
+                assert "aliases must be a mapping" in str(exc_info.value)
+
+    def test_invalid_default_alias_target_raises_configuration_error(self):
+        config = {
+            "openai": {"gpt-4o": {}},
+            "aliases": {"default": "missing-model"},
+        }
+
+        with patch("llm_cli.config.loaders.resources.files") as mock_files:
+            with patch("llm_cli.config.loaders.Path.exists", return_value=False):
+                mock_files.return_value.joinpath.return_value.open.return_value.__enter__.return_value = yaml.dump(
+                    config
+                )
+
+                with pytest.raises(ConfigurationError) as exc_info:
+                    load_models_and_aliases()
+
+                assert "Default model 'missing-model'" in str(exc_info.value)
+
+    def test_duplicate_model_id_across_providers_raises_configuration_error(self):
+        config = {
+            "openai": {"shared-model": {}},
+            "anthropic": {"shared-model": {}},
+            "aliases": {"default": "openai/shared-model"},
+        }
+
+        with patch("llm_cli.config.loaders.resources.files") as mock_files:
+            with patch("llm_cli.config.loaders.Path.exists", return_value=False):
+                mock_files.return_value.joinpath.return_value.open.return_value.__enter__.return_value = yaml.dump(
+                    config
+                )
+
+                with pytest.raises(ConfigurationError) as exc_info:
+                    load_models_and_aliases()
+
+                assert "Duplicate model ID 'shared-model'" in str(exc_info.value)

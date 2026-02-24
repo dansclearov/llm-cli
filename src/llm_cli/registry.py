@@ -70,6 +70,9 @@ class ModelRegistry:
             if model_alias == mapping[1] and mapping not in alias_target_values:
                 display_models.add(model_alias)
 
+        if self._default_model in self._model_map:
+            display_models.add(self._default_model)
+
         return sorted(display_models)
 
     def _load_models_and_aliases(self) -> None:
