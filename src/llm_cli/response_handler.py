@@ -77,6 +77,10 @@ class ResponseHandler:
         """Mark the response as interrupted by user."""
         self.renderer.mark_interrupted()
 
+    def has_visible_output(self) -> bool:
+        """Return whether any streamed output has already been emitted."""
+        return self.renderer.has_visible_output()
+
     def _handle_part(self, part: ModelResponsePart) -> None:
         if isinstance(part, TextPart):
             self.renderer.render_text(part.content)
@@ -85,13 +89,13 @@ class ResponseHandler:
         elif isinstance(part, BuiltinToolCallPart | BuiltinToolReturnPart):
             return  # Suppress built-in tool chatter (web_search, etc.)
         elif isinstance(part, ToolCallPart):
-            if self._is_builtin_tool_name(part.tool_name):
+            if self._should_suppress_tool(part.tool_name):
                 return
             description = self._format_tool(part.tool_name, part.args)
             if description:
                 self.renderer.render_tool_call(description)
         elif isinstance(part, ToolReturnPart):
-            if self._is_builtin_tool_name(part.tool_name):
+            if self._should_suppress_tool(part.tool_name):
                 return
             description = self._format_tool(f"{part.tool_name} result", part.content)
             if description:
@@ -105,7 +109,7 @@ class ResponseHandler:
         elif isinstance(delta, ThinkingPartDelta) and delta.content_delta:
             self.renderer.render_thinking(delta.content_delta)
         elif isinstance(delta, ToolCallPartDelta):
-            if self._is_builtin_tool_name(delta.tool_name_delta):
+            if self._should_suppress_tool(delta.tool_name_delta):
                 return
             description = self._format_tool(delta.tool_name_delta, delta.args_delta)
             if description:
@@ -144,7 +148,7 @@ class ResponseHandler:
         }
 
     def _should_suppress_tool(self, tool_name: Optional[str]) -> bool:
-        return False
+        return self._is_builtin_tool_name(tool_name)
 
     def _extract_text(self, parts: Sequence[ModelResponsePart]) -> str:
         """Fallback text extraction when no stream deltas were emitted."""

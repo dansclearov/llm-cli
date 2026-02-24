@@ -1,7 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from pydantic_ai.messages import ModelResponse, TextPart
@@ -24,7 +24,6 @@ def test_run_chat_loop_skips_empty_input():
     )
     current_chat = Chat(metadata=metadata)
 
-    args = SimpleNamespace(model="sonnet")
     chat_manager = Mock()
     llm_client = Mock()
     input_handler = Mock()
@@ -33,7 +32,6 @@ def test_run_chat_loop_skips_empty_input():
 
     run_chat_loop(
         current_chat=current_chat,
-        args=args,
         chat_manager=chat_manager,
         llm_client=llm_client,
         input_handler=input_handler,
@@ -41,7 +39,6 @@ def test_run_chat_loop_skips_empty_input():
         prompt_str="You are helpful.",
         config=config,
         active_model="sonnet",
-        is_new_chat=True,
     )
 
     llm_client.chat.assert_not_called()
@@ -59,7 +56,6 @@ def test_run_chat_loop_skips_whitespace_only_input():
     )
     current_chat = Chat(metadata=metadata)
 
-    args = SimpleNamespace(model="sonnet")
     chat_manager = Mock()
     llm_client = Mock()
     input_handler = Mock()
@@ -68,7 +64,6 @@ def test_run_chat_loop_skips_whitespace_only_input():
 
     run_chat_loop(
         current_chat=current_chat,
-        args=args,
         chat_manager=chat_manager,
         llm_client=llm_client,
         input_handler=input_handler,
@@ -76,7 +71,6 @@ def test_run_chat_loop_skips_whitespace_only_input():
         prompt_str="You are helpful.",
         config=config,
         active_model="sonnet",
-        is_new_chat=True,
     )
 
     llm_client.chat.assert_not_called()
@@ -96,7 +90,6 @@ def test_run_chat_loop_uses_active_model_for_resumed_chat():
     current_chat.append_user_message("Earlier user message")
     current_chat.append_assistant_response("Earlier assistant message")
 
-    args = SimpleNamespace(model="gpt")
     chat_manager = Mock()
     llm_client = Mock()
     llm_client.chat.return_value = ModelResponse(parts=[TextPart(content="new reply")])
@@ -104,31 +97,24 @@ def test_run_chat_loop_uses_active_model_for_resumed_chat():
     input_handler.get_user_input.side_effect = ["Next question", KeyboardInterrupt()]
     config = Config()
 
-    with patch.object(Chat, "save", return_value=None):
-        run_chat_loop(
-            current_chat=current_chat,
-            args=args,
-            chat_manager=chat_manager,
-            llm_client=llm_client,
-            input_handler=input_handler,
-            chat_options=ChatOptions(),
-            prompt_str="You are helpful.",
-            config=config,
-            active_model="sonnet",
-            is_new_chat=False,
-        )
+    run_chat_loop(
+        current_chat=current_chat,
+        chat_manager=chat_manager,
+        llm_client=llm_client,
+        input_handler=input_handler,
+        chat_options=ChatOptions(),
+        prompt_str="You are helpful.",
+        config=config,
+        active_model="sonnet",
+    )
 
     assert llm_client.chat.call_args[0][1] == "sonnet"
 
 
-def test_handle_chat_selection_exits_for_missing_explicit_resume(monkeypatch):
+def test_handle_chat_selection_exits_for_missing_explicit_resume():
     args = SimpleNamespace(resume="missing-id", **{"continue": False})
     chat_manager = Mock()
-
-    def raise_not_found(chat_id: str):
-        raise ChatNotFoundError(f"Chat not found: {chat_id}")
-
-    monkeypatch.setattr("llm_cli.app.Chat.load", raise_not_found)
+    chat_manager.load_chat.side_effect = ChatNotFoundError("Chat not found: missing-id")
 
     with pytest.raises(SystemExit) as exc_info:
         handle_chat_selection(args, chat_manager)
@@ -147,7 +133,6 @@ def test_run_chat_loop_discards_user_message_on_request_error():
     )
     current_chat = Chat(metadata=metadata)
 
-    args = SimpleNamespace(model="sonnet")
     chat_manager = Mock()
     llm_client = Mock()
     llm_client.chat.side_effect = RuntimeError("upstream failed")
@@ -157,7 +142,6 @@ def test_run_chat_loop_discards_user_message_on_request_error():
 
     run_chat_loop(
         current_chat=current_chat,
-        args=args,
         chat_manager=chat_manager,
         llm_client=llm_client,
         input_handler=input_handler,
@@ -165,7 +149,6 @@ def test_run_chat_loop_discards_user_message_on_request_error():
         prompt_str="You are helpful.",
         config=config,
         active_model="sonnet",
-        is_new_chat=True,
     )
 
     # Failed requests should not leave orphan user messages behind.

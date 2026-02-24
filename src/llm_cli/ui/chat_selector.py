@@ -6,9 +6,8 @@ This module provides cross-platform keyboard input handling:
 - Rich console output works consistently across all platforms
 """
 
-import json
 import sys
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from rich.console import Console
 from rich.live import Live
@@ -21,7 +20,6 @@ from llm_cli.constants import (
     NAVIGATION_KEYS,
 )
 from llm_cli.core.session import Chat, ChatMetadata
-from llm_cli.exceptions import ChatNotFoundError
 
 
 class ChatSelector:
@@ -30,7 +28,13 @@ class ChatSelector:
     def __init__(self, console: Console):
         self.console = console
 
-    def select_chat(self, chats: List[ChatMetadata]) -> Optional[Chat]:
+    def select_chat(
+        self,
+        chats: List[ChatMetadata],
+        *,
+        load_chat: Callable[[str], Optional[Chat]],
+        delete_chat: Callable[[str], None],
+    ) -> Optional[Chat]:
         """Interactive chat selection with keyboard navigation."""
         if not chats:
             self.console.print("No existing chats found.")
@@ -39,15 +43,12 @@ class ChatSelector:
         page_size = DEFAULT_PAGE_SIZE
         current_page = INITIAL_PAGE
         selected_index = INITIAL_SELECTED_INDEX
-        total_pages = (len(chats) + page_size - 1) // page_size
-
-        def get_current_page_chats():
-            start_idx = current_page * page_size
-            end_idx = min(start_idx + page_size, len(chats))
-            return chats[start_idx:end_idx]
+        current_page, selected_index, total_pages = self._clamp_selection_state(
+            chats, page_size, current_page, selected_index
+        )
 
         def render_selection():
-            page_chats = get_current_page_chats()
+            page_chats = self._get_page_chats(chats, current_page, page_size)
             output = []
 
             output.append(
@@ -94,7 +95,7 @@ class ChatSelector:
                 render_selection(), console=self.console, refresh_per_second=10
             ) as live:
                 while True:
-                    page_chats = get_current_page_chats()
+                    page_chats = self._get_page_chats(chats, current_page, page_size)
                     key = self._read_key()
 
                     if key in NAVIGATION_KEYS["UP"]:
@@ -103,7 +104,11 @@ class ChatSelector:
                         elif current_page > 0:
                             current_page -= 1
                             selected_index = min(
-                                len(get_current_page_chats()) - 1, page_size - 1
+                                len(
+                                    self._get_page_chats(chats, current_page, page_size)
+                                )
+                                - 1,
+                                page_size - 1,
                             )
 
                     elif key in NAVIGATION_KEYS["DOWN"]:
@@ -115,29 +120,18 @@ class ChatSelector:
 
                     elif key in NAVIGATION_KEYS["ENTER"]:
                         selected_chat = page_chats[selected_index]
-                        try:
-                            return Chat.load(selected_chat.id)
-                        except (
-                            ChatNotFoundError,
-                            OSError,
-                            json.JSONDecodeError,
-                            KeyError,
-                            TypeError,
-                            ValueError,
-                        ) as exc:
-                            self.console.print(
-                                "[dim]Skipping unreadable chat: "
-                                f"{selected_chat.id} ({type(exc).__name__})[/dim]"
+                        loaded_chat = load_chat(selected_chat.id)
+                        if loaded_chat is not None:
+                            return loaded_chat
+
+                        chats = self._refresh_chat_list(chats, selected_chat.id)
+                        if not chats:
+                            return None
+                        current_page, selected_index, total_pages = (
+                            self._clamp_selection_state(
+                                chats, page_size, current_page, selected_index
                             )
-                            chats = self._refresh_chat_list(chats, selected_chat.id)
-                            if not chats:
-                                return None
-                            total_pages = (len(chats) + page_size - 1) // page_size
-                            if current_page >= total_pages:
-                                current_page = max(0, total_pages - 1)
-                            page_chats = get_current_page_chats()
-                            if selected_index >= len(page_chats):
-                                selected_index = len(page_chats) - 1
+                        )
 
                     elif (
                         key in NAVIGATION_KEYS["NEXT_PAGE"]
@@ -156,17 +150,16 @@ class ChatSelector:
                         if second_key == NAVIGATION_KEYS["DELETE"]:
                             # Delete the selected chat
                             selected_chat = page_chats[selected_index]
-                            self._delete_chat(selected_chat.id)
+                            delete_chat(selected_chat.id)
                             # Refresh chat list and adjust selection
                             chats = self._refresh_chat_list(chats, selected_chat.id)
                             if not chats:
                                 return None
-                            total_pages = (len(chats) + page_size - 1) // page_size
-                            if current_page >= total_pages:
-                                current_page = max(0, total_pages - 1)
-                            page_chats = get_current_page_chats()
-                            if selected_index >= len(page_chats) and page_chats:
-                                selected_index = len(page_chats) - 1
+                            current_page, selected_index, total_pages = (
+                                self._clamp_selection_state(
+                                    chats, page_size, current_page, selected_index
+                                )
+                            )
 
                     elif key in NAVIGATION_KEYS["QUIT"]:
                         return None
@@ -176,6 +169,31 @@ class ChatSelector:
 
         except KeyboardInterrupt:
             return None
+
+    def _get_page_chats(
+        self, chats: List[ChatMetadata], current_page: int, page_size: int
+    ) -> List[ChatMetadata]:
+        start_idx = current_page * page_size
+        end_idx = min(start_idx + page_size, len(chats))
+        return chats[start_idx:end_idx]
+
+    def _clamp_selection_state(
+        self,
+        chats: List[ChatMetadata],
+        page_size: int,
+        current_page: int,
+        selected_index: int,
+    ) -> tuple[int, int, int]:
+        """Clamp pagination + selected row after list changes."""
+        total_pages = max(1, (len(chats) + page_size - 1) // page_size)
+        current_page = min(max(current_page, 0), total_pages - 1)
+
+        page_chats = self._get_page_chats(chats, current_page, page_size)
+        if not page_chats:
+            return current_page, INITIAL_SELECTED_INDEX, total_pages
+
+        selected_index = min(max(selected_index, 0), len(page_chats) - 1)
+        return current_page, selected_index, total_pages
 
     def _read_key(self) -> str:
         """Read one key from stdin across supported platforms."""
@@ -231,28 +249,6 @@ class ChatSelector:
             return key
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-    def _delete_chat(self, chat_id: str) -> None:
-        """Delete a chat by moving it to trash."""
-        try:
-            import send2trash
-            from pathlib import Path
-            from llm_cli.config.settings import Config
-
-            config = Config()
-            chat_dir = Path(config.chat_dir) / chat_id
-            if chat_dir.exists():
-                send2trash.send2trash(str(chat_dir))
-        except ImportError:
-            # Fallback to regular deletion if send2trash not available
-            import shutil
-            from pathlib import Path
-            from llm_cli.config.settings import Config
-
-            config = Config()
-            chat_dir = Path(config.chat_dir) / chat_id
-            if chat_dir.exists():
-                shutil.rmtree(chat_dir)
 
     def _refresh_chat_list(
         self, chats: List[ChatMetadata], deleted_id: str

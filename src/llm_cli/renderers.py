@@ -21,6 +21,7 @@ class ResponseRenderer(ABC):
         self.thinking_section_open = False
         self.thinking_started = False
         self.content_started = False
+        self.tool_output_started = False
 
     @abstractmethod
     def start_response(self) -> None:
@@ -62,6 +63,7 @@ class ResponseRenderer(ABC):
         """Render tool call metadata."""
         if not text or self.options.silent:
             return
+        self.tool_output_started = True
         self._render_tool(text)
 
     def finish_response(self) -> None:
@@ -92,6 +94,11 @@ class ResponseRenderer(ABC):
         if not self.options.silent:
             self._end_thinking_section(final=final)
         self.thinking_section_open = False
+
+    def has_visible_output(self) -> bool:
+        if self.options.silent:
+            return False
+        return self.content_started or self.thinking_started or self.tool_output_started
 
     @abstractmethod
     def _render_text(self, text: str) -> None: ...

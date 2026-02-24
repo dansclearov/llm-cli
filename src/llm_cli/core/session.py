@@ -1,9 +1,7 @@
 """Chat session management."""
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from pydantic_ai.messages import (
@@ -15,14 +13,9 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from llm_cli.config.settings import Config
 from llm_cli.core.message_utils import (
-    convert_legacy_messages,
     count_non_system_messages,
-    deserialize_model_messages,
-    serialize_model_messages,
 )
-from llm_cli.exceptions import ChatNotFoundError
 
 
 @dataclass
@@ -69,12 +62,6 @@ class Chat:
     messages: List[ModelMessage] = field(default_factory=list)
     pending_system_prompt: Optional[str] = None
 
-    @property
-    def chat_dir(self) -> Path:
-        """Get the directory for this chat."""
-        config = Config()
-        return Path(config.chat_dir) / self.metadata.id
-
     def append_user_message(self, content: str) -> None:
         """Append a user message, injecting system prompt if pending."""
         parts = []
@@ -103,56 +90,3 @@ class Chat:
     def should_be_saved(self) -> bool:
         """Check if chat should be saved (has non-system messages)."""
         return count_non_system_messages(self.messages) > 0
-
-    def save(self) -> None:
-        """Save chat to disk only if it has non-system messages."""
-        if not self.should_be_saved():
-            return
-
-        chat_dir = self.chat_dir
-        chat_dir.mkdir(parents=True, exist_ok=True)
-
-        # Update metadata
-        self.metadata.updated_at = datetime.now()
-        self.metadata.message_count = count_non_system_messages(self.messages)
-
-        # Track if we've generated smart title to avoid regenerating
-        if not hasattr(self.metadata, "smart_title_generated"):
-            self.metadata.smart_title_generated = False
-
-        # Save metadata
-        with open(chat_dir / "metadata.json", "w") as f:
-            json.dump(self.metadata.to_dict(), f, indent=2)
-
-        # Save messages (pydantic-ai structure)
-        with open(chat_dir / "messages.json", "w") as f:
-            json.dump(serialize_model_messages(self.messages), f, indent=2)
-
-    @classmethod
-    def load(cls, chat_id: str) -> "Chat":
-        """Load chat from disk."""
-        config = Config()
-        chat_dir = Path(config.chat_dir) / chat_id
-
-        if not chat_dir.exists():
-            raise ChatNotFoundError(f"Chat not found: {chat_id}")
-
-        # Load metadata
-        with open(chat_dir / "metadata.json", "r") as f:
-            metadata = ChatMetadata.from_dict(json.load(f))
-
-        # Load messages
-        with open(chat_dir / "messages.json", "r") as f:
-            raw_messages = json.load(f)
-
-        if (
-            raw_messages
-            and isinstance(raw_messages, list)
-            and isinstance(raw_messages[0], dict)
-            and "kind" in raw_messages[0]
-        ):
-            messages = deserialize_model_messages(raw_messages)
-        else:
-            messages = convert_legacy_messages(raw_messages)
-
-        return cls(metadata=metadata, messages=messages)

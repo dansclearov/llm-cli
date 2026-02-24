@@ -110,7 +110,7 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
     if args.resume is not None:
         if args.resume:  # Specific chat ID provided
             try:
-                current_chat = Chat.load(args.resume)
+                current_chat = chat_manager.load_chat(args.resume)
                 print(f"Loaded chat: {current_chat.metadata.title}")
             except (ChatNotFoundError, FileNotFoundError):
                 print(f"Chat not found: {args.resume}")
@@ -129,9 +129,75 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
     return current_chat
 
 
+def _print_chat_session_context(current_chat: Chat, prompt_str: str) -> None:
+    """Print startup context for new or resumed chats."""
+    history = flatten_history(current_chat.messages)
+    has_user_messages = any(role == "user" for role, _ in history)
+
+    if not has_user_messages:
+        print(
+            f"Starting new {current_chat.metadata.model} chat session. "
+            "Press Ctrl+C to exit. Use Shift+Enter for new lines."
+        )
+        print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
+        return
+
+    system_message = latest_system_prompt(current_chat.messages) or ""
+    if system_message != prompt_str:
+        print(f"{SYSTEM_COLOR}System (from chat):{RESET_COLOR} {system_message}")
+    else:
+        print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
+
+    print_all_messages(current_chat.messages)
+
+
+def _handle_local_command(normalized_input: str, config: Config) -> bool:
+    """Handle local slash commands. Returns True when handled."""
+    if not normalized_input.startswith("/vim"):
+        return False
+
+    config.vim_mode = not config.vim_mode
+    update_user_config("vim_mode", config.vim_mode)
+    return True
+
+
+def _update_title_from_first_user_message(current_chat: Chat) -> None:
+    """Replace placeholder title with the first user message."""
+    if not current_chat.metadata.title.startswith("Chat "):
+        return
+
+    user_messages = [
+        content
+        for role, content in flatten_history(current_chat.messages)
+        if role == "user"
+    ]
+    if len(user_messages) != 1:
+        return
+
+    first_msg = user_messages[0]
+    current_chat.metadata.title = first_msg.replace("\n", " ").strip()[
+        :MAX_TITLE_LENGTH
+    ]
+
+
+def _maybe_generate_smart_title(
+    current_chat: Chat,
+    chat_manager: ChatManager,
+    llm_client: LLMClient,
+    active_model: str,
+) -> None:
+    """Generate a smart title once enough conversation exists."""
+    non_system_count = count_non_system_messages(current_chat.messages)
+    should_generate_title = (
+        non_system_count >= MIN_MESSAGES_FOR_SMART_TITLE
+        and not current_chat.metadata.smart_title_generated
+    )
+    if should_generate_title:
+        chat_manager.generate_smart_title(current_chat, llm_client, active_model)
+
+
 def run_chat_loop(
     current_chat: Chat,
-    args,
     chat_manager: ChatManager,
     llm_client: LLMClient,
     input_handler: InputHandler,
@@ -139,30 +205,9 @@ def run_chat_loop(
     prompt_str: str,
     config: Config,
     active_model: str,
-    is_new_chat: bool = False,
 ) -> None:
     """Run the main chat interaction loop."""
-    # Check if this is a new chat (no user messages yet)
-    history = flatten_history(current_chat.messages)
-    user_messages = [content for role, content in history if role == "user"]
-    is_first_message = len(user_messages) == 0
-
-    if is_first_message:
-        # Show welcome message for new chats
-        print(
-            f"Starting new {current_chat.metadata.model} chat session. "
-            "Press Ctrl+C to exit. Use Shift+Enter for new lines."
-        )
-        print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
-    else:
-        # Show system message if different from current prompt
-        system_message = latest_system_prompt(current_chat.messages) or ""
-        if system_message != prompt_str:
-            print(f"{SYSTEM_COLOR}System (from chat):{RESET_COLOR} {system_message}")
-        else:
-            print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
-
-        print_all_messages(current_chat.messages)
+    _print_chat_session_context(current_chat, prompt_str)
 
     # Main interaction loop
     finished = True
@@ -175,10 +220,7 @@ def run_chat_loop(
             if not normalized_input:
                 continue
 
-            # Handle slash commands
-            if normalized_input.startswith("/vim"):
-                config.vim_mode = not config.vim_mode
-                update_user_config("vim_mode", config.vim_mode)
+            if _handle_local_command(normalized_input, config):
                 continue
 
             # Process normal input
@@ -204,32 +246,13 @@ def run_chat_loop(
             current_chat.append_assistant_response(model_response)
             pending_user_message = False
 
-            # Update title after first message
-            user_messages = [
-                content
-                for role, content in flatten_history(current_chat.messages)
-                if role == "user"
-            ]
-            if len(user_messages) == 1 and current_chat.metadata.title.startswith(
-                "Chat "
-            ):
-                first_msg = user_messages[0]
-                current_chat.metadata.title = first_msg.replace("\n", " ").strip()[
-                    :MAX_TITLE_LENGTH
-                ]
+            _update_title_from_first_user_message(current_chat)
 
-            current_chat.save()  # Auto-save after each exchange
+            chat_manager.save_chat(current_chat)  # Auto-save after each exchange
 
-            # Generate smart title once we have enough conversation (only once per chat)
-            non_system_count = count_non_system_messages(current_chat.messages)
-            should_generate_title = (
-                non_system_count >= MIN_MESSAGES_FOR_SMART_TITLE
-                and not current_chat.metadata.smart_title_generated
+            _maybe_generate_smart_title(
+                current_chat, chat_manager, llm_client, active_model
             )
-            if should_generate_title:
-                chat_manager.generate_smart_title(
-                    current_chat, llm_client, active_model
-                )
 
             finished = True
 
@@ -240,7 +263,7 @@ def run_chat_loop(
                 finished = True
                 print("", flush=True)
             else:
-                current_chat.save()  # Final save before exit
+                chat_manager.save_chat(current_chat)  # Final save before exit
                 break
 
 
@@ -296,7 +319,6 @@ def main():
 
     run_chat_loop(
         current_chat,
-        args,
         chat_manager,
         llm_client,
         input_handler,
@@ -304,7 +326,6 @@ def main():
         prompt_str,
         config,
         active_model,
-        is_new_chat,
     )
 
 
