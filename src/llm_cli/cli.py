@@ -15,7 +15,7 @@ def parse_arguments(registry: ModelRegistry) -> argparse.Namespace:
         nargs="?",
         choices=available_prompts,
         default="general",
-        help="Specify the initial prompt for the chat session",
+        help="Specify the system prompt for the chat session",
     )
     parser.add_argument(
         "-m",

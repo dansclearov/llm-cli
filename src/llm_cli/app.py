@@ -31,7 +31,11 @@ from llm_cli.core.message_utils import (
     latest_system_prompt,
 )
 from llm_cli.core.session import Chat
-from llm_cli.exceptions import ChatNotFoundError, PromptNotFoundError
+from llm_cli.exceptions import (
+    ChatNotFoundError,
+    ModelNotFoundError,
+    PromptNotFoundError,
+)
 from llm_cli.prompts import read_system_message_from_file
 from llm_cli.llm_types import ChatOptions
 from llm_cli.ui.input_handler import InputHandler
@@ -297,13 +301,21 @@ def main():
     # Handle chat selection/loading
     current_chat = handle_chat_selection(args, chat_manager)
     is_new_chat = False
+    requested_model = registry.resolve_model_name(args.model)
 
     if current_chat is None:
         # Create new chat
-        current_chat = chat_manager.create_new_chat(args.model, prompt_str)
+        current_chat = chat_manager.create_new_chat(requested_model, prompt_str)
         is_new_chat = True
-    active_model = args.model if is_new_chat else current_chat.metadata.model
-    if not is_new_chat and args.model != active_model:
+    active_model = current_chat.metadata.model
+    if not is_new_chat:
+        try:
+            active_model_for_comparison = registry.resolve_model_name(active_model)
+        except ModelNotFoundError:
+            active_model_for_comparison = active_model
+    else:
+        active_model_for_comparison = active_model
+    if not is_new_chat and requested_model != active_model_for_comparison:
         print(
             f"Resumed chat locked to its original model: {active_model} "
             f"(ignoring --model {args.model})"

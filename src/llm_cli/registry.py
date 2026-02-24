@@ -18,19 +18,24 @@ class ModelRegistry:
         self._default_model: str = "gpt-4o"  # fallback default
         self._load_models_and_aliases()
 
-    def get_provider_for_model(self, model_alias: str) -> Tuple[str, str]:
-        """Get the provider name and model ID for a given alias."""
-        if model_alias not in self._model_map:
-            available_models = list(self._model_map.keys())
-            raise ModelNotFoundError(
-                f"Unknown model: {model_alias}. Available models: {available_models}"
-            )
+    def get_provider_for_model(self, model_name_or_alias: str) -> Tuple[str, str]:
+        """Get provider/model for an alias or a resolved `provider:model-id` name."""
+        if model_name_or_alias in self._model_map:
+            return self._model_map[model_name_or_alias]
 
-        return self._model_map[model_alias]
+        parsed = self._parse_model_name(model_name_or_alias)
+        if parsed is not None:
+            return parsed
 
-    def resolve_model_name(self, model_alias: str) -> str:
-        """Return the pydantic-ai model name (e.g. provider:model-id) for an alias."""
-        provider_name, model_id = self.get_provider_for_model(model_alias)
+        available_models = list(self._model_map.keys())
+        raise ModelNotFoundError(
+            "Unknown model: "
+            f"{model_name_or_alias}. Available models: {available_models}"
+        )
+
+    def resolve_model_name(self, model_name_or_alias: str) -> str:
+        """Return a canonical pydantic-ai model name (e.g. `provider:model-id`)."""
+        provider_name, model_id = self.get_provider_for_model(model_name_or_alias)
         return f"{provider_name}:{model_id}"
 
     def get_available_models(self) -> Dict[str, str]:
@@ -44,9 +49,9 @@ class ModelRegistry:
         """Get the default model alias."""
         return self._default_model
 
-    def get_model_capabilities(self, model_alias: str) -> ModelCapabilities:
-        """Get capabilities for a specific model."""
-        provider_name, model_id = self.get_provider_for_model(model_alias)
+    def get_model_capabilities(self, model_name_or_alias: str) -> ModelCapabilities:
+        """Get capabilities for a specific alias or resolved model name."""
+        provider_name, model_id = self.get_provider_for_model(model_name_or_alias)
 
         raw_caps = load_model_capabilities(provider_name, model_id)
         return ModelCapabilities(
@@ -83,3 +88,14 @@ class ModelRegistry:
             for alias, mapping in self._model_map.items()
             if alias != mapping[1]
         }
+
+    def _parse_model_name(self, model_name: str) -> Tuple[str, str] | None:
+        """Parse a resolved `provider:model-id` string."""
+        if ":" not in model_name:
+            return None
+
+        provider_name, model_id = model_name.split(":", 1)
+        if not provider_name or not model_id:
+            return None
+
+        return provider_name, model_id
