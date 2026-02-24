@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Commit Messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) style:
+
+```
+<type>(<optional scope>): <description>
+```
+
+Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+
+Examples:
+- `feat(models): add support for Gemini 2.0`
+- `fix(client): handle retry on rate limit errors`
+- `refactor: extract ChatSelector into ui module`
+
 ## Development Commands
 
 **Testing:**
