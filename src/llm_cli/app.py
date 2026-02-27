@@ -212,6 +212,7 @@ def run_chat_loop(
 ) -> None:
     """Run the main chat interaction loop."""
     _print_chat_session_context(current_chat, prompt_str)
+    capabilities_override = current_chat.metadata.get_model_capabilities_snapshot()
 
     # Main interaction loop
     finished = True
@@ -234,7 +235,10 @@ def run_chat_loop(
             finished = False
             try:
                 model_response = llm_client.chat(
-                    current_chat.messages, active_model, chat_options
+                    current_chat.messages,
+                    active_model,
+                    chat_options,
+                    capabilities_override=capabilities_override,
                 )
             except KeyboardInterrupt:
                 _discard_pending_user_message(current_chat)
@@ -306,6 +310,9 @@ def main():
     if current_chat is None:
         # Create new chat
         current_chat = chat_manager.create_new_chat(requested_model, prompt_str)
+        current_chat.metadata.set_model_capabilities_snapshot(
+            registry.get_model_capabilities(requested_model)
+        )
         is_new_chat = True
     active_model = current_chat.metadata.model
     if not is_new_chat:

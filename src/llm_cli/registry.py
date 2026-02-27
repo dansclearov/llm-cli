@@ -3,7 +3,10 @@ from typing import Dict, Tuple
 from llm_cli.config.loaders import load_models_and_aliases
 from llm_cli.exceptions import ModelNotFoundError
 from llm_cli.llm_types import ModelCapabilities
-from llm_cli.model_config import get_model_capabilities as load_model_capabilities
+from llm_cli.model_config import (
+    get_model_capabilities as load_model_capabilities,
+    load_model_capabilities as load_model_capabilities_map,
+)
 
 # Aliases to exclude from display models
 EXCLUDED_ALIASES = {"default"}
@@ -59,6 +62,13 @@ class ModelRegistry:
             supports_thinking=bool(raw_caps.get("supports_thinking", False)),
             extra_params=raw_caps.get("extra_params", {}),
         )
+
+    def has_model_config(self, model_name_or_alias: str) -> bool:
+        """Return True when the model has an explicit entry in merged models config."""
+        provider_name, model_id = self.get_provider_for_model(model_name_or_alias)
+        model_capabilities = load_model_capabilities_map()
+        provider_models = model_capabilities.get(provider_name, {})
+        return model_id in provider_models
 
     def get_display_models(self) -> list[str]:
         """Get models for CLI display, preferring aliases over full names."""

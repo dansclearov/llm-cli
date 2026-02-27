@@ -28,18 +28,23 @@ class LLMClient:
     def chat(
         self,
         messages: Sequence[ModelMessage],
-        model_alias: str,
+        model_name_or_alias: str,
         options: Optional[ChatOptions] = None,
+        *,
+        capabilities_override: Optional[ModelCapabilities] = None,
     ) -> ModelResponse:
         """Get response from the specified model."""
         if options is None:
             options = ChatOptions()
 
         provider_name, provider_model_id = self.registry.get_provider_for_model(
-            model_alias
+            model_name_or_alias
         )
 
-        capabilities = self.registry.get_model_capabilities(model_alias)
+        capabilities = self._resolve_capabilities(
+            model_name_or_alias,
+            capabilities_override,
+        )
         effective_options = self._normalize_options(options, capabilities)
 
         resolved_model_id = provider_model_id
@@ -119,6 +124,19 @@ class LLMClient:
         finally:
             signal.signal(signal.SIGINT, old_handler)
             self.interrupt_handler = None
+
+    def _resolve_capabilities(
+        self,
+        model_name_or_alias: str,
+        capabilities_override: Optional[ModelCapabilities],
+    ) -> ModelCapabilities:
+        """Use chat snapshot only when the model no longer has config."""
+        if capabilities_override is not None and not self.registry.has_model_config(
+            model_name_or_alias
+        ):
+            return capabilities_override
+
+        return self.registry.get_model_capabilities(model_name_or_alias)
 
     def _normalize_options(
         self, options: ChatOptions, capabilities: ModelCapabilities

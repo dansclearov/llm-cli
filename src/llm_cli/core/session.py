@@ -1,8 +1,9 @@
 """Chat session management."""
 
+import copy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic_ai.messages import (
     ModelMessage,
@@ -16,6 +17,7 @@ from pydantic_ai.messages import (
 from llm_cli.core.message_utils import (
     count_non_system_messages,
 )
+from llm_cli.llm_types import ModelCapabilities
 
 
 @dataclass
@@ -29,9 +31,10 @@ class ChatMetadata:
     model: str
     message_count: int
     smart_title_generated: bool = False
+    model_capabilities_snapshot: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict:
-        return {
+        data = {
             "id": self.id,
             "title": self.title,
             "created_at": self.created_at.isoformat(),
@@ -40,9 +43,18 @@ class ChatMetadata:
             "message_count": self.message_count,
             "smart_title_generated": self.smart_title_generated,
         }
+        if self.model_capabilities_snapshot is not None:
+            data["model_capabilities_snapshot"] = copy.deepcopy(
+                self.model_capabilities_snapshot
+            )
+        return data
 
     @classmethod
     def from_dict(cls, data: Dict) -> "ChatMetadata":
+        raw_snapshot = data.get("model_capabilities_snapshot")
+        snapshot = (
+            copy.deepcopy(raw_snapshot) if isinstance(raw_snapshot, dict) else None
+        )
         return cls(
             id=data["id"],
             title=data["title"],
@@ -51,6 +63,31 @@ class ChatMetadata:
             model=data["model"],
             message_count=data["message_count"],
             smart_title_generated=data.get("smart_title_generated", False),
+            model_capabilities_snapshot=snapshot,
+        )
+
+    def set_model_capabilities_snapshot(self, capabilities: ModelCapabilities) -> None:
+        """Persist a JSON-safe snapshot of model capabilities for this chat."""
+        self.model_capabilities_snapshot = {
+            "supports_search": bool(capabilities.supports_search),
+            "supports_thinking": bool(capabilities.supports_thinking),
+            "extra_params": copy.deepcopy(capabilities.extra_params),
+        }
+
+    def get_model_capabilities_snapshot(self) -> ModelCapabilities | None:
+        """Return a typed capabilities snapshot when one is available."""
+        raw = self.model_capabilities_snapshot
+        if not isinstance(raw, dict):
+            return None
+
+        extra_params = raw.get("extra_params", {})
+        safe_extra_params = (
+            copy.deepcopy(extra_params) if isinstance(extra_params, dict) else {}
+        )
+        return ModelCapabilities(
+            supports_search=bool(raw.get("supports_search", False)),
+            supports_thinking=bool(raw.get("supports_thinking", False)),
+            extra_params=safe_extra_params,
         )
 
 

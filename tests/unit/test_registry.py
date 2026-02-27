@@ -120,6 +120,34 @@ class TestModelRegistry:
             assert capabilities.supports_thinking is True
             mock_caps.assert_called_once_with("provider", "model")
 
+    def test_has_model_config_returns_true_for_configured_model(self):
+        with (
+            patch("llm_cli.registry.load_models_and_aliases") as mock_load,
+            patch("llm_cli.registry.load_model_capabilities_map") as mock_caps_map,
+        ):
+            mock_load.return_value = (
+                {"alias": ("provider", "model")},
+                "alias",
+            )
+            mock_caps_map.return_value = {"provider": {"model": {}}}
+
+            registry = ModelRegistry()
+            assert registry.has_model_config("alias") is True
+
+    def test_has_model_config_returns_false_for_missing_model(self):
+        with (
+            patch("llm_cli.registry.load_models_and_aliases") as mock_load,
+            patch("llm_cli.registry.load_model_capabilities_map") as mock_caps_map,
+        ):
+            mock_load.return_value = (
+                {"alias": ("provider", "model")},
+                "alias",
+            )
+            mock_caps_map.return_value = {"provider": {"other": {}}}
+
+            registry = ModelRegistry()
+            assert registry.has_model_config("alias") is False
+
     def test_get_display_models_includes_default_model(self):
         with patch("llm_cli.registry.load_models_and_aliases") as mock_load:
             mock_load.return_value = (

@@ -10,7 +10,7 @@ from llm_cli.app import handle_chat_selection, run_chat_loop
 from llm_cli.config.settings import Config
 from llm_cli.core.session import Chat, ChatMetadata
 from llm_cli.exceptions import ChatNotFoundError
-from llm_cli.llm_types import ChatOptions
+from llm_cli.llm_types import ChatOptions, ModelCapabilities
 
 
 def test_run_chat_loop_skips_empty_input():
@@ -87,6 +87,13 @@ def test_run_chat_loop_uses_active_model_for_resumed_chat():
         message_count=4,
     )
     current_chat = Chat(metadata=metadata)
+    current_chat.metadata.set_model_capabilities_snapshot(
+        ModelCapabilities(
+            supports_search=True,
+            supports_thinking=False,
+            extra_params={"example": True},
+        )
+    )
     current_chat.append_user_message("Earlier user message")
     current_chat.append_assistant_response("Earlier assistant message")
 
@@ -109,6 +116,11 @@ def test_run_chat_loop_uses_active_model_for_resumed_chat():
     )
 
     assert llm_client.chat.call_args[0][1] == "sonnet"
+    capabilities_override = llm_client.chat.call_args.kwargs["capabilities_override"]
+    assert capabilities_override is not None
+    assert capabilities_override.supports_search is True
+    assert capabilities_override.supports_thinking is False
+    assert capabilities_override.extra_params == {"example": True}
 
 
 def test_handle_chat_selection_exits_for_missing_explicit_resume():

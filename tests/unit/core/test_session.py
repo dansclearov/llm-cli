@@ -11,6 +11,7 @@ from llm_cli.core.message_utils import flatten_history
 from llm_cli.core.chat_repository import ChatRepository
 from llm_cli.core.session import Chat, ChatMetadata
 from llm_cli.exceptions import ChatNotFoundError
+from llm_cli.llm_types import ModelCapabilities
 
 
 class TestChatMetadata:
@@ -42,12 +43,24 @@ class TestChatMetadata:
             model="gpt-4o",
             message_count=2,
         )
+        metadata.set_model_capabilities_snapshot(
+            ModelCapabilities(
+                supports_search=True,
+                supports_thinking=True,
+                extra_params={"foo": {"bar": 1}},
+            )
+        )
 
         data = metadata.to_dict()
         assert data["id"] == "test-123"
         assert data["title"] == "Test Chat"
         assert data["model"] == "gpt-4o"
         assert data["message_count"] == 2
+        assert data["model_capabilities_snapshot"]["supports_search"] is True
+        assert data["model_capabilities_snapshot"]["supports_thinking"] is True
+        assert data["model_capabilities_snapshot"]["extra_params"] == {
+            "foo": {"bar": 1}
+        }
         assert "created_at" in data
         assert "updated_at" in data
 
@@ -61,6 +74,11 @@ class TestChatMetadata:
             "message_count": 2,
             "preview": "Hello world",
             "smart_title_generated": True,
+            "model_capabilities_snapshot": {
+                "supports_search": True,
+                "supports_thinking": False,
+                "extra_params": {"temperature": 0.2},
+            },
         }
 
         metadata = ChatMetadata.from_dict(data)
@@ -69,6 +87,11 @@ class TestChatMetadata:
         assert metadata.model == "gpt-4o"
         assert metadata.message_count == 2
         assert metadata.smart_title_generated
+        snapshot = metadata.get_model_capabilities_snapshot()
+        assert snapshot is not None
+        assert snapshot.supports_search is True
+        assert snapshot.supports_thinking is False
+        assert snapshot.extra_params == {"temperature": 0.2}
         assert not hasattr(metadata, "preview")
 
 

@@ -91,3 +91,31 @@ class TestLLMClient:
             )
 
         assert attempts["count"] == 1
+
+    def test_resolve_capabilities_uses_config_when_available(self):
+        registry = Mock()
+        configured = ModelCapabilities(supports_search=True)
+        override = ModelCapabilities(supports_thinking=True)
+        registry.has_model_config.return_value = True
+        registry.get_model_capabilities.return_value = configured
+        client = LLMClient(registry)
+
+        resolved = client._resolve_capabilities("provider:model", override)
+
+        assert resolved is configured
+        registry.get_model_capabilities.assert_called_once_with("provider:model")
+
+    def test_resolve_capabilities_uses_snapshot_when_model_config_missing(self):
+        registry = Mock()
+        override = ModelCapabilities(
+            supports_search=False,
+            supports_thinking=True,
+            extra_params={"foo": "bar"},
+        )
+        registry.has_model_config.return_value = False
+        client = LLMClient(registry)
+
+        resolved = client._resolve_capabilities("provider:model", override)
+
+        assert resolved is override
+        registry.get_model_capabilities.assert_not_called()
