@@ -94,14 +94,20 @@ class ChatRepository:
         chat.metadata.updated_at = datetime.now()
         chat.metadata.message_count = count_non_system_messages(chat.messages)
 
-        metadata_payload = chat.metadata.to_dict()
         messages_payload = serialize_model_messages(chat.messages)
 
-        with open(chat_dir / "metadata.json", "w") as f:
-            json.dump(metadata_payload, f, indent=2)
+        self._write_metadata(chat_dir, chat.metadata)
 
         with open(chat_dir / "messages.json", "w") as f:
             json.dump(messages_payload, f, indent=2)
+
+    def save_metadata(self, metadata: ChatMetadata) -> None:
+        """Persist chat metadata without touching message files or timestamps."""
+        chat_dir = self.chat_path(metadata.id)
+        if not chat_dir.exists():
+            raise ChatNotFoundError(f"Chat not found: {metadata.id}")
+
+        self._write_metadata(chat_dir, metadata)
 
     def load_chat(self, chat_id: str) -> Chat:
         """Load a chat from disk."""
@@ -156,3 +162,8 @@ class ChatRepository:
             pass
 
         shutil.rmtree(chat_dir)
+
+    def _write_metadata(self, chat_dir: Path, metadata: ChatMetadata) -> None:
+        metadata_payload = metadata.to_dict()
+        with open(chat_dir / "metadata.json", "w") as f:
+            json.dump(metadata_payload, f, indent=2)

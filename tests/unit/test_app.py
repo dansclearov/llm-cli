@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 from pydantic_ai.messages import ModelResponse, TextPart
 
-from llm_cli.app import handle_chat_selection, run_chat_loop
+from llm_cli.app import _handle_local_command, handle_chat_selection, run_chat_loop
 from llm_cli.config.settings import Config
 from llm_cli.core.session import Chat, ChatMetadata
 from llm_cli.exceptions import ChatNotFoundError
@@ -165,3 +165,89 @@ def test_run_chat_loop_discards_user_message_on_request_error():
 
     # Failed requests should not leave orphan user messages behind.
     assert current_chat.messages == []
+
+
+def test_handle_local_command_toggles_bookmark_for_saved_chat():
+    metadata = ChatMetadata(
+        id="test-chat-bookmark",
+        title="Existing chat",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        model="sonnet",
+        message_count=2,
+    )
+    current_chat = Chat(metadata=metadata)
+    current_chat.append_user_message("Hello")
+    current_chat.append_assistant_response("Hi there!")
+    chat_manager = Mock()
+    chat_manager.toggle_bookmark.return_value = True
+
+    handled = _handle_local_command(
+        "/bookmark",
+        Config(),
+        current_chat,
+        chat_manager,
+    )
+
+    assert handled is True
+    chat_manager.toggle_bookmark.assert_called_once_with(current_chat)
+
+
+def test_handle_local_command_rejects_bookmark_for_unsaved_chat(capsys):
+    metadata = ChatMetadata(
+        id="test-chat-unsaved-bookmark",
+        title="New chat",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        model="sonnet",
+        message_count=0,
+    )
+    current_chat = Chat(metadata=metadata)
+    chat_manager = Mock()
+
+    handled = _handle_local_command(
+        "/bookmark",
+        Config(),
+        current_chat,
+        chat_manager,
+    )
+
+    assert handled is True
+    chat_manager.toggle_bookmark.assert_not_called()
+    assert (
+        "Bookmarking is available after the first saved exchange."
+        in capsys.readouterr().out
+    )
+
+
+def test_run_chat_loop_does_not_save_clean_chat_on_exit():
+    metadata = ChatMetadata(
+        id="test-chat-exit",
+        title="Existing chat",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        model="sonnet",
+        message_count=2,
+    )
+    current_chat = Chat(metadata=metadata)
+    current_chat.append_user_message("Earlier user message")
+    current_chat.append_assistant_response("Earlier assistant message")
+
+    chat_manager = Mock()
+    llm_client = Mock()
+    input_handler = Mock()
+    input_handler.get_user_input.side_effect = [KeyboardInterrupt()]
+    config = Config()
+
+    run_chat_loop(
+        current_chat=current_chat,
+        chat_manager=chat_manager,
+        llm_client=llm_client,
+        input_handler=input_handler,
+        chat_options=ChatOptions(),
+        prompt_str="You are helpful.",
+        config=config,
+        active_model="sonnet",
+    )
+
+    chat_manager.save_chat.assert_not_called()

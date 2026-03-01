@@ -24,6 +24,7 @@ class TestChatMetadata:
             updated_at=now,
             model="gpt-4o",
             message_count=2,
+            bookmarked=True,
             smart_title_generated=False,
         )
 
@@ -31,6 +32,7 @@ class TestChatMetadata:
         assert metadata.title == "Test Chat"
         assert metadata.model == "gpt-4o"
         assert metadata.message_count == 2
+        assert metadata.bookmarked
         assert not metadata.smart_title_generated
 
     def test_to_dict(self):
@@ -56,6 +58,7 @@ class TestChatMetadata:
         assert data["title"] == "Test Chat"
         assert data["model"] == "gpt-4o"
         assert data["message_count"] == 2
+        assert data["bookmarked"] is False
         assert data["model_capabilities_snapshot"]["supports_search"] is True
         assert data["model_capabilities_snapshot"]["supports_thinking"] is True
         assert data["model_capabilities_snapshot"]["extra_params"] == {
@@ -72,6 +75,7 @@ class TestChatMetadata:
             "updated_at": "2024-01-01T12:30:00",
             "model": "gpt-4o",
             "message_count": 2,
+            "bookmarked": True,
             "preview": "Hello world",
             "smart_title_generated": True,
             "model_capabilities_snapshot": {
@@ -86,6 +90,7 @@ class TestChatMetadata:
         assert metadata.title == "Test Chat"
         assert metadata.model == "gpt-4o"
         assert metadata.message_count == 2
+        assert metadata.bookmarked
         assert metadata.smart_title_generated
         snapshot = metadata.get_model_capabilities_snapshot()
         assert snapshot is not None
@@ -93,6 +98,20 @@ class TestChatMetadata:
         assert snapshot.supports_thinking is False
         assert snapshot.extra_params == {"temperature": 0.2}
         assert not hasattr(metadata, "preview")
+
+    def test_from_dict_defaults_bookmark_to_false(self):
+        data = {
+            "id": "test-123",
+            "title": "Test Chat",
+            "created_at": "2024-01-01T12:00:00",
+            "updated_at": "2024-01-01T12:30:00",
+            "model": "gpt-4o",
+            "message_count": 2,
+        }
+
+        metadata = ChatMetadata.from_dict(data)
+
+        assert metadata.bookmarked is False
 
 
 class TestChat:
@@ -249,3 +268,31 @@ class TestChatRepository:
             assert chats == []
             on_root_read_error.assert_called_once()
             assert on_root_read_error.call_args[0][0] == repository.chat_root
+
+    def test_save_metadata_updates_bookmark_without_touching_timestamp(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repository = ChatRepository(Config(chat_dir=temp_dir, vim_mode=False))
+
+            created_at = datetime.fromisoformat("2024-01-01T10:00:00")
+            updated_at = datetime.fromisoformat("2024-01-02T10:00:00")
+            metadata = ChatMetadata(
+                id="test-123",
+                title="Test Chat",
+                created_at=created_at,
+                updated_at=updated_at,
+                model="gpt-4o",
+                message_count=2,
+            )
+
+            chat = Chat(metadata=metadata)
+            chat.append_user_message("Hello")
+            chat.append_assistant_response("Hi there!")
+            repository.save_chat(chat)
+
+            chat.metadata.bookmarked = True
+            previous_updated_at = chat.metadata.updated_at
+            repository.save_metadata(chat.metadata)
+
+            loaded_chat = repository.load_chat("test-123")
+            assert loaded_chat.metadata.bookmarked is True
+            assert loaded_chat.metadata.updated_at == previous_updated_at

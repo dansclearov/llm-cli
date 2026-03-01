@@ -10,6 +10,7 @@ from llm_cli.core.chat_factory import ChatFactory
 from llm_cli.core.chat_repository import ChatRepository
 from llm_cli.core.smart_title import SmartTitleGenerator
 from llm_cli.core.session import Chat, ChatMetadata
+from llm_cli.exceptions import ChatNotFoundError
 from llm_cli.ui.chat_selector import ChatSelector
 
 
@@ -45,6 +46,10 @@ class ChatManager:
         """Persist a chat to disk."""
         self.repository.save_chat(chat)
 
+    def save_metadata(self, metadata: ChatMetadata) -> None:
+        """Persist metadata without rewriting message history."""
+        self.repository.save_metadata(metadata)
+
     def delete_chat(self, chat_id: str) -> None:
         """Delete a chat by moving it to trash when possible."""
         try:
@@ -76,7 +81,25 @@ class ChatManager:
             chats,
             load_chat=self._load_chat_for_selector,
             delete_chat=self.delete_chat,
+            toggle_bookmark=self.toggle_bookmark,
         )
+
+    def toggle_bookmark(self, target: Chat | ChatMetadata) -> bool | None:
+        """Toggle bookmark state and persist it without changing sort order."""
+        metadata = target.metadata if isinstance(target, Chat) else target
+        previous_value = metadata.bookmarked
+        metadata.bookmarked = not previous_value
+        try:
+            self.save_metadata(metadata)
+        except (ChatNotFoundError, OSError) as exc:
+            metadata.bookmarked = previous_value
+            self.console.print(
+                "[dim]Could not update bookmark for "
+                f"{metadata.id}: {type(exc).__name__}[/dim]"
+            )
+            return None
+
+        return metadata.bookmarked
 
     def generate_smart_title(self, chat: Chat, llm_client, model: str) -> None:
         """Generate a better title using LLM for chats with >3 message pairs."""

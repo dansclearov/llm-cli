@@ -34,6 +34,8 @@ NAVIGATION_KEYS = {
     "ENTER": ["\r", "\n"],  # Enter
     "NEXT_PAGE": ["n", "\x0c"],  # n, Ctrl+L
     "PREV_PAGE": ["p", "\x08"],  # p, Ctrl+H
+    "BOOKMARK": "b",  # Toggle bookmark
+    "FILTER_BOOKMARKED": "f",  # Filter bookmarked chats
     "DELETE": "d",  # First d for delete (dd to confirm)
     "QUIT": ["q", "\x03"],  # q, Ctrl+C
 }

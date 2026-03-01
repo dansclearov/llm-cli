@@ -30,6 +30,7 @@ class ChatMetadata:
     updated_at: datetime
     model: str
     message_count: int
+    bookmarked: bool = False
     smart_title_generated: bool = False
     model_capabilities_snapshot: Optional[Dict[str, Any]] = None
 
@@ -41,6 +42,7 @@ class ChatMetadata:
             "updated_at": self.updated_at.isoformat(),
             "model": self.model,
             "message_count": self.message_count,
+            "bookmarked": self.bookmarked,
             "smart_title_generated": self.smart_title_generated,
         }
         if self.model_capabilities_snapshot is not None:
@@ -62,6 +64,7 @@ class ChatMetadata:
             updated_at=datetime.fromisoformat(data["updated_at"]),
             model=data["model"],
             message_count=data["message_count"],
+            bookmarked=data.get("bookmarked", False),
             smart_title_generated=data.get("smart_title_generated", False),
             model_capabilities_snapshot=snapshot,
         )

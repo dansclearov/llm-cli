@@ -9,6 +9,7 @@ Command-line chat interface for multiple LLM providers, with streaming output, p
 - One CLI for multiple providers through `pydantic-ai` (`openai`, `openai-responses`, `anthropic`, `google-gla`, `openrouter`, `moonshotai`, and others you add in YAML).
 - Fast model switching via aliases like `sonnet`, `gpt`, `gemini-pro`.
 - Chat history with resume/continue flows and an interactive selector.
+- Chat bookmarks with `/bookmark` in-chat plus bookmark/filter controls in the selector.
 - Optional search and thinking traces when the selected model supports them.
 - User config in `~/.config/llm_cli/` merges with built-in defaults.
 
@@ -55,6 +56,10 @@ llm-cli concise -m gpt
 llm-cli -c
 llm-cli -r
 llm-cli -r chat_20240622_143022_a1b2c3d4
+
+# In-chat local commands
+/bookmark
+/vim
 
 # Model features
 llm-cli --search -m sonnet

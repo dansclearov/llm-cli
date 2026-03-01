@@ -49,3 +49,13 @@ def test_refresh_chat_list_removes_deleted_id():
     refreshed = selector._refresh_chat_list(chats, "b")
 
     assert [chat.id for chat in refreshed] == ["a", "c"]
+
+
+def test_filter_chats_returns_only_bookmarked_entries():
+    selector = ChatSelector(Mock())
+    chats = [_chat_metadata("a"), _chat_metadata("b"), _chat_metadata("c")]
+    chats[1].bookmarked = True
+
+    filtered = selector._filter_chats(chats, bookmarked_only=True)
+
+    assert [chat.id for chat in filtered] == ["b"]

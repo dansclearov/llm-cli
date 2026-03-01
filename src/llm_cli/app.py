@@ -155,13 +155,29 @@ def _print_chat_session_context(current_chat: Chat, prompt_str: str) -> None:
     print_all_messages(current_chat.messages)
 
 
-def _handle_local_command(normalized_input: str, config: Config) -> bool:
+def _handle_local_command(
+    normalized_input: str,
+    config: Config,
+    current_chat: Chat,
+    chat_manager: ChatManager,
+) -> bool:
     """Handle local slash commands. Returns True when handled."""
-    if not normalized_input.startswith("/vim"):
+    if normalized_input == "/vim":
+        config.vim_mode = not config.vim_mode
+        update_user_config("vim_mode", config.vim_mode)
+        return True
+
+    if normalized_input != "/bookmark":
         return False
 
-    config.vim_mode = not config.vim_mode
-    update_user_config("vim_mode", config.vim_mode)
+    if not current_chat.should_be_saved():
+        print("Bookmarking is available after the first saved exchange.")
+        return True
+
+    bookmarked = chat_manager.toggle_bookmark(current_chat)
+    if bookmarked is not None:
+        action = "Bookmarked" if bookmarked else "Removed bookmark from"
+        print(f"{action} chat: {current_chat.metadata.title}")
     return True
 
 
@@ -225,7 +241,9 @@ def run_chat_loop(
             if not normalized_input:
                 continue
 
-            if _handle_local_command(normalized_input, config):
+            if _handle_local_command(
+                normalized_input, config, current_chat, chat_manager
+            ):
                 continue
 
             # Process normal input
@@ -271,7 +289,6 @@ def run_chat_loop(
                 finished = True
                 print("", flush=True)
             else:
-                chat_manager.save_chat(current_chat)  # Final save before exit
                 break
 
 
