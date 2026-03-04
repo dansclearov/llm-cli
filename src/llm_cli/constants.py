@@ -1,17 +1,5 @@
 """Constants for LLM CLI application."""
 
-from colored import attr, fg
-
-# UI Colors
-USER_COLOR = fg("green") + attr("bold")
-AI_COLOR = fg("blue") + attr("bold")
-SYSTEM_COLOR = fg("violet") + attr("bold")
-RESET_COLOR = attr("reset")
-
-# Display prompts
-USER_PROMPT = "User: "
-AI_PROMPT = "AI: "
-
 # Chat constants
 MIN_MESSAGES_FOR_SMART_TITLE = 8
 MAX_TITLE_LENGTH = 75

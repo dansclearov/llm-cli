@@ -1,14 +1,16 @@
 from prompt_toolkit import prompt
-from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.cursor_shapes import ModalCursorShapeConfig
+from prompt_toolkit.shortcuts import CompleteStyle
 
-from llm_cli.constants import USER_PROMPT
+from llm_cli.local_commands import SlashCommandCompleter
+from llm_cli.ui.labels import USER_LABEL, prompt_html_label
 
 
 class InputHandler:
     def __init__(self, config=None):
         self.config = config
+        self.command_completer = SlashCommandCompleter()
 
     def get_user_input(self) -> str:
         """Get user input with Shift+Enter (or Ctrl+J) for new lines."""
@@ -17,7 +19,7 @@ class InputHandler:
         @bindings.add("c-m")  # Enter key
         def _(event):
             # Submit the input
-            event.app.exit(result=event.app.current_buffer.text)
+            event.current_buffer.validate_and_handle()
 
         @bindings.add("c-j")  # Ctrl+J acts as Shift+Enter for newline
         def _(event):
@@ -35,12 +37,14 @@ class InputHandler:
             vim_mode = self.config.vim_mode if self.config else False
             cursor_config = ModalCursorShapeConfig() if vim_mode else None
             user_input = prompt(
-                HTML(f"<ansigreen><b>{USER_PROMPT}</b></ansigreen>"),
+                prompt_html_label(USER_LABEL),
                 multiline=True,
                 key_bindings=bindings,
                 prompt_continuation=lambda width, line_number, is_soft_wrap: "",
                 vi_mode=vim_mode,
                 cursor=cursor_config,
+                completer=self.command_completer,
+                complete_style=CompleteStyle.READLINE_LIKE,
             )
             return user_input
         except KeyboardInterrupt:

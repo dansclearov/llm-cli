@@ -12,6 +12,7 @@ from llm_cli.core.smart_title import SmartTitleGenerator
 from llm_cli.core.session import Chat, ChatMetadata
 from llm_cli.exceptions import ChatNotFoundError
 from llm_cli.ui.chat_selector import ChatSelector
+from llm_cli.ui.labels import ERROR_LABEL, WARNING_LABEL, rich_message
 
 
 class ChatManager:
@@ -56,7 +57,11 @@ class ChatManager:
             self.repository.delete_chat(chat_id)
         except OSError as exc:
             self.console.print(
-                f"[dim]Could not delete chat {chat_id}: {type(exc).__name__}[/dim]"
+                rich_message(
+                    ERROR_LABEL,
+                    f"Could not delete chat {chat_id}: {type(exc).__name__}",
+                    dim=True,
+                )
             )
 
     def get_last_chat(self) -> Optional[Chat]:
@@ -94,8 +99,12 @@ class ChatManager:
         except (ChatNotFoundError, OSError) as exc:
             metadata.bookmarked = previous_value
             self.console.print(
-                "[dim]Could not update bookmark for "
-                f"{metadata.id}: {type(exc).__name__}[/dim]"
+                rich_message(
+                    ERROR_LABEL,
+                    f"Could not update bookmark for {metadata.id}: "
+                    f"{type(exc).__name__}",
+                    dim=True,
+                )
             )
             return None
 
@@ -114,7 +123,11 @@ class ChatManager:
             raise
         except Exception as exc:
             self.console.print(
-                f"[dim]Smart title generation skipped: {type(exc).__name__}[/dim]"
+                rich_message(
+                    WARNING_LABEL,
+                    f"Smart title generation skipped: {type(exc).__name__}",
+                    dim=True,
+                )
             )
             self._mark_title_generation_attempted(chat)
 
@@ -125,7 +138,11 @@ class ChatManager:
             self.save_chat(chat)
         except OSError as exc:
             self.console.print(
-                f"[dim]Could not persist smart-title status: {type(exc).__name__}[/dim]"
+                rich_message(
+                    ERROR_LABEL,
+                    f"Could not persist smart-title status: {type(exc).__name__}",
+                    dim=True,
+                )
             )
 
     def _load_chat_for_selector(self, chat_id: str) -> Optional[Chat]:
@@ -137,14 +154,28 @@ class ChatManager:
 
     def _on_chat_dir_read_error(self, chat_dir, exc: OSError) -> None:
         self.console.print(
-            f"[dim]Unable to read chat directory {chat_dir}: {exc}[/dim]"
+            rich_message(
+                ERROR_LABEL,
+                f"Unable to read chat directory {chat_dir}: {exc}",
+                dim=True,
+            )
         )
 
     def _on_unreadable_chat_metadata(self, folder_name: str, exc: Exception) -> None:
         self.console.print(
-            "[dim]Skipping unreadable chat metadata in "
-            f"{folder_name}: {type(exc).__name__}[/dim]"
+            rich_message(
+                WARNING_LABEL,
+                f"Skipping unreadable chat metadata in {folder_name}: "
+                f"{type(exc).__name__}",
+                dim=True,
+            )
         )
 
     def _on_chat_load_error(self, prefix: str, chat_id: str, exc: Exception) -> None:
-        self.console.print(f"[dim]{prefix}: {chat_id} ({type(exc).__name__})[/dim]")
+        self.console.print(
+            rich_message(
+                WARNING_LABEL,
+                f"{prefix}: {chat_id} ({type(exc).__name__})",
+                dim=True,
+            )
+        )

@@ -12,14 +12,8 @@ from llm_cli.cli import parse_arguments
 from llm_cli.config.settings import Config, setup_providers
 from llm_cli.config.user_config import update_user_config
 from llm_cli.constants import (
-    AI_COLOR,
-    AI_PROMPT,
     MAX_TITLE_LENGTH,
     MIN_MESSAGES_FOR_SMART_TITLE,
-    RESET_COLOR,
-    SYSTEM_COLOR,
-    USER_COLOR,
-    USER_PROMPT,
 )
 from pydantic_ai.messages import ModelMessage, ModelRequest
 
@@ -36,9 +30,24 @@ from llm_cli.exceptions import (
     ModelNotFoundError,
     PromptNotFoundError,
 )
+from llm_cli.local_commands import (
+    LOCAL_COMMANDS,
+    build_argument_error_message,
+    build_unknown_command_message,
+    parse_local_command,
+)
 from llm_cli.prompts import read_system_message_from_file
 from llm_cli.llm_types import ChatOptions
 from llm_cli.ui.input_handler import InputHandler
+from llm_cli.ui.labels import (
+    AI_LABEL,
+    ERROR_LABEL,
+    INFO_LABEL,
+    SYSTEM_LABEL,
+    USER_LABEL,
+    WARNING_LABEL,
+    ansi_message,
+)
 
 load_dotenv()
 
@@ -81,9 +90,8 @@ def print_user_paths() -> None:
 def print_all_messages(messages: Sequence[ModelMessage]) -> None:
     """Print all messages in the conversation history."""
     for role, content in flatten_history(messages):
-        role_label = USER_PROMPT if role == "user" else AI_PROMPT
-        role_color = USER_COLOR if role == "user" else AI_COLOR
-        print(f"{role_color}{role_label}{RESET_COLOR}{content}")
+        label = USER_LABEL if role == "user" else AI_LABEL
+        print(ansi_message(label, content))
 
 
 def setup_configuration(
@@ -115,9 +123,14 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
         if args.resume:  # Specific chat ID provided
             try:
                 current_chat = chat_manager.load_chat(args.resume)
-                print(f"Loaded chat: {current_chat.metadata.title}")
+                print(
+                    ansi_message(
+                        INFO_LABEL,
+                        f"Loaded chat: {current_chat.metadata.title}",
+                    )
+                )
             except (ChatNotFoundError, FileNotFoundError):
-                print(f"Chat not found: {args.resume}")
+                print(ansi_message(ERROR_LABEL, f"Chat not found: {args.resume}"))
                 sys.exit(1)
         else:  # No ID provided, show selector
             current_chat = chat_manager.interactive_chat_selection()
@@ -128,7 +141,11 @@ def handle_chat_selection(args, chat_manager: ChatManager) -> Optional[Chat]:
         # Continue most recent chat
         current_chat = chat_manager.get_last_chat()
         if not current_chat:
-            print("No previous chats found. Starting new chat...")
+            print(
+                ansi_message(
+                    INFO_LABEL, "No previous chats found. Starting new chat..."
+                )
+            )
 
     return current_chat
 
@@ -140,17 +157,26 @@ def _print_chat_session_context(current_chat: Chat, prompt_str: str) -> None:
 
     if not has_user_messages:
         print(
-            f"Starting new {current_chat.metadata.model} chat session. "
-            "Press Ctrl+C to exit. Use Shift+Enter for new lines."
+            ansi_message(
+                INFO_LABEL,
+                f"Starting new {current_chat.metadata.model} chat session. "
+                "Press Ctrl+C to exit. Use Shift+Enter for new lines.",
+            )
         )
-        print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
+        print(ansi_message(SYSTEM_LABEL, prompt_str))
         return
 
     system_message = latest_system_prompt(current_chat.messages) or ""
     if system_message != prompt_str:
-        print(f"{SYSTEM_COLOR}System (from chat):{RESET_COLOR} {system_message}")
+        print(
+            ansi_message(
+                SYSTEM_LABEL,
+                system_message,
+                label_text="System (from chat): ",
+            )
+        )
     else:
-        print(f"{SYSTEM_COLOR}System:{RESET_COLOR} {prompt_str}")
+        print(ansi_message(SYSTEM_LABEL, prompt_str))
 
     print_all_messages(current_chat.messages)
 
@@ -162,22 +188,44 @@ def _handle_local_command(
     chat_manager: ChatManager,
 ) -> bool:
     """Handle local slash commands. Returns True when handled."""
-    if normalized_input == "/vim":
-        config.vim_mode = not config.vim_mode
-        update_user_config("vim_mode", config.vim_mode)
-        return True
-
-    if normalized_input != "/bookmark":
+    parsed_command = parse_local_command(normalized_input)
+    if parsed_command is None:
         return False
 
-    if not current_chat.should_be_saved():
-        print("Bookmarking is available after the first saved exchange.")
+    command_name, command_args = parsed_command
+    if command_name not in LOCAL_COMMANDS:
+        print(ansi_message(WARNING_LABEL, build_unknown_command_message(command_name)))
         return True
 
-    bookmarked = chat_manager.toggle_bookmark(current_chat)
-    if bookmarked is not None:
-        action = "Bookmarked" if bookmarked else "Removed bookmark from"
-        print(f"{action} chat: {current_chat.metadata.title}")
+    if command_args:
+        print(ansi_message(WARNING_LABEL, build_argument_error_message(command_name)))
+        return True
+
+    if command_name == "/vim":
+        config.vim_mode = not config.vim_mode
+        update_user_config("vim_mode", config.vim_mode)
+        status = "enabled" if config.vim_mode else "disabled"
+        print(ansi_message(INFO_LABEL, f"Vim mode {status}."))
+        return True
+
+    if command_name == "/bookmark":
+        if not current_chat.should_be_saved():
+            print(
+                ansi_message(
+                    WARNING_LABEL,
+                    "Bookmarking is available after the first saved exchange.",
+                )
+            )
+            return True
+
+        bookmarked = chat_manager.toggle_bookmark(current_chat)
+        if bookmarked is not None:
+            action = "Bookmarked" if bookmarked else "Removed bookmark from"
+            print(
+                ansi_message(
+                    INFO_LABEL, f"{action} chat: {current_chat.metadata.title}"
+                )
+            )
     return True
 
 
@@ -266,7 +314,12 @@ def run_chat_loop(
                 _discard_pending_user_message(current_chat)
                 pending_user_message = False
                 finished = True
-                print(f"Request failed: {type(exc).__name__}: {exc}")
+                print(
+                    ansi_message(
+                        ERROR_LABEL,
+                        f"Request failed: {type(exc).__name__}: {exc}",
+                    )
+                )
                 continue
 
             current_chat.append_assistant_response(model_response)
@@ -316,7 +369,7 @@ def main():
             setup_configuration(args, registry)
         )
     except PromptNotFoundError as e:
-        print(e)
+        print(ansi_message(ERROR_LABEL, str(e)))
         sys.exit(2)
 
     # Handle chat selection/loading
@@ -341,17 +394,28 @@ def main():
         active_model_for_comparison = active_model
     if not is_new_chat and requested_model != active_model_for_comparison:
         print(
-            f"Resumed chat locked to its original model: {active_model} "
-            f"(ignoring --model {args.model})"
+            ansi_message(
+                INFO_LABEL,
+                f"Resumed chat locked to its original model: {active_model} "
+                f"(ignoring --model {args.model})",
+            )
         )
 
     # Show continuation message for existing chats
     if not is_new_chat and current_chat.metadata.message_count > 2:
         print(
-            f"Continuing chat: {current_chat.metadata.title} "
-            f"({current_chat.metadata.model}, {current_chat.metadata.message_count} messages)"
+            ansi_message(
+                INFO_LABEL,
+                f"Continuing chat: {current_chat.metadata.title} "
+                f"({current_chat.metadata.model}, {current_chat.metadata.message_count} messages)",
+            )
         )
-        print("Press Ctrl+C to exit. Use Shift+Enter for new lines.")
+        print(
+            ansi_message(
+                INFO_LABEL,
+                "Press Ctrl+C to exit. Use Shift+Enter for new lines.",
+            )
+        )
 
     run_chat_loop(
         current_chat,

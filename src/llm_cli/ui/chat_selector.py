@@ -20,6 +20,7 @@ from llm_cli.constants import (
     NAVIGATION_KEYS,
 )
 from llm_cli.core.session import Chat, ChatMetadata
+from llm_cli.ui.labels import INFO_LABEL, rich_message
 
 
 class ChatSelector:
@@ -38,7 +39,9 @@ class ChatSelector:
     ) -> Optional[Chat]:
         """Interactive chat selection with keyboard navigation."""
         if not chats:
-            self.console.print("No existing chats found.")
+            self.console.print(
+                rich_message(INFO_LABEL, "No existing chats found.", dim=True)
+            )
             return None
 
         all_chats = chats

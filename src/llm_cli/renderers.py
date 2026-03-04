@@ -4,10 +4,9 @@ from abc import ABC, abstractmethod
 
 from rich.console import Console
 from rich.markup import escape
-from rich.text import Text
 
-from llm_cli.constants import AI_PROMPT
 from llm_cli.llm_types import ChatOptions, ModelCapabilities
+from llm_cli.ui.labels import AI_LABEL, ansi_label, rich_label
 
 
 class ResponseRenderer(ABC):
@@ -126,11 +125,7 @@ class PlainTextRenderer(ResponseRenderer):
         if self.options.silent:
             return
 
-        from colored import attr, fg
-
-        ai_color = fg("blue") + attr("bold")
-        reset = attr("reset")
-        print(f"{ai_color}{AI_PROMPT}{reset}", end="", flush=True)
+        print(ansi_label(AI_LABEL), end="", flush=True)
 
     def _render_text(self, text: str) -> None:
         print(text, end="", flush=True)
@@ -160,7 +155,7 @@ class StyledRenderer(ResponseRenderer):
 
     def start_response(self) -> None:
         if not self.options.silent:
-            self.console.print(Text(AI_PROMPT, style="blue bold"), end="")
+            self.console.print(rich_label(AI_LABEL), end="")
 
     def _render_text(self, text: str) -> None:
         self.console.print(escape(text), end="")

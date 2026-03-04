@@ -11,6 +11,7 @@ from llm_cli.config.settings import Config
 from llm_cli.core.session import Chat, ChatMetadata
 from llm_cli.exceptions import ChatNotFoundError
 from llm_cli.llm_types import ChatOptions, ModelCapabilities
+from llm_cli.ui.labels import WARNING_LABEL, ansi_message
 
 
 def test_run_chat_loop_skips_empty_input():
@@ -215,7 +216,40 @@ def test_handle_local_command_rejects_bookmark_for_unsaved_chat(capsys):
     assert handled is True
     chat_manager.toggle_bookmark.assert_not_called()
     assert (
-        "Bookmarking is available after the first saved exchange."
+        ansi_message(
+            WARNING_LABEL,
+            "Bookmarking is available after the first saved exchange.",
+        )
+        in capsys.readouterr().out
+    )
+
+
+def test_handle_local_command_rejects_unknown_slash_command(capsys):
+    metadata = ChatMetadata(
+        id="test-chat-unknown-command",
+        title="New chat",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        model="sonnet",
+        message_count=0,
+    )
+    current_chat = Chat(metadata=metadata)
+    chat_manager = Mock()
+
+    handled = _handle_local_command(
+        "/bookamrk",
+        Config(),
+        current_chat,
+        chat_manager,
+    )
+
+    assert handled is True
+    chat_manager.toggle_bookmark.assert_not_called()
+    assert (
+        ansi_message(
+            WARNING_LABEL,
+            "Unknown command: /bookamrk. Did you mean /bookmark?",
+        )
         in capsys.readouterr().out
     )
 

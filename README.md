@@ -61,6 +61,8 @@ llm-cli -r chat_20240622_143022_a1b2c3d4
 /bookmark
 /vim
 
+# Slash commands complete with Tab
+
 # Model features
 llm-cli --search -m sonnet
 llm-cli --no-thinking -m gpt
