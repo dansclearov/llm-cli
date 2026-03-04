@@ -70,13 +70,15 @@ src/llm_cli/
 │   └── user_config.py # User configuration management
 ├── ui/                # User interface components
 │   ├── input_handler.py # InputHandler - prompt_toolkit integration
-│   └── chat_selector.py # ChatSelector - interactive chat picker
+│   ├── chat_selector.py # ChatSelector - interactive chat picker
+│   └── labels.py      # Shared ANSI/Rich/prompt-toolkit label styling
 ├── llm_types.py       # Shared chat/model capability dataclasses
 ├── app.py             # Main application orchestration
 ├── cli.py             # Command-line argument parsing
 ├── main.py            # Entry point (delegates to app.py)
 ├── constants.py       # All constants & UI config
 ├── exceptions.py      # Custom exception classes
+├── local_commands.py  # Local in-chat slash command registry + completion
 ├── prompts.py         # Prompt file loading
 ├── model_config.py    # Model capabilities loading
 ├── registry.py        # ModelRegistry - alias + capability management
@@ -116,8 +118,15 @@ Format: `prompt_[name].txt`, loaded via `prompts.py:read_system_message_from_fil
 **Streaming & Output:**
 - Two renderers: `PlainTextRenderer` and `StyledRenderer` 
 - `StyledRenderer` provides styled thinking traces (NOT markdown rendering!)
+- Shared label/color definitions live in `ui/labels.py` and are reused by plain prints, Rich output, and the prompt label
 - Rich console with `highlight=False` to prevent number styling in LLM output
 - Real-time streaming with interrupt handling
+
+**Local Slash Commands:**
+- Local in-chat commands are defined in `local_commands.py`, not inline in `InputHandler`
+- `InputHandler` wires slash command completion through prompt-toolkit
+- Slash command completion uses `CompleteStyle.READLINE_LIKE`, so completion is `Tab`-triggered and rendered in a readline-like way instead of a dropdown menu
+- Unknown slash commands are still rejected in `app.py` after submit so they never get sent to the model
 
 **Key Components:**
 - `LLMClient` (core/client.py) - High-level API client with retry logic
@@ -125,6 +134,8 @@ Format: `prompt_[name].txt`, loaded via `prompts.py:read_system_message_from_fil
 - `Chat`/`ChatMetadata` (core/session.py) - Data models
 - `ChatSelector` (ui/chat_selector.py) - Interactive chat selection
 - `InputHandler` (ui/input_handler.py) - User input handling
+- `local_commands.py` - Slash command definitions + completion helpers
+- `ui/labels.py` - Shared label text and styling helpers
 - `ModelRegistry` (registry.py) - Central model/provider management
 - `ResponseHandler` (response_handler.py) - Streaming coordination
 
@@ -138,13 +149,14 @@ Located in `app.py`, broken into logical functions:
 - `main()` - High-level orchestration
 
 **Key Constants:**
-All centralized in `constants.py`:
+Mostly centralized in `constants.py`:
 - `MIN_MESSAGES_FOR_SMART_TITLE = 8`
 - `DEFAULT_PAGE_SIZE = 10` 
-- `DEFAULT_MAX_HISTORY_PAIRS = 3`
-- `USER_PROMPT = "User: "`
-- `AI_PROMPT = "AI: "`
-- UI colors and navigation keys
+- UI navigation keys
+
+Conversation and status labels are centralized in `ui/labels.py`:
+- `USER_LABEL`, `AI_LABEL`, `SYSTEM_LABEL`
+- `INFO_LABEL`, `WARNING_LABEL`, `ERROR_LABEL`
 
 **Common Gotchas:**
 1. Add models to `models.yaml`, not provider classes
@@ -163,6 +175,9 @@ All centralized in `constants.py`:
 8. Rich console has `highlight=False` to prevent auto-styling numbers
 9. Prompts loaded from `src/llm_cli/prompts/` directory, not a Python package
 10. Custom exceptions in `exceptions.py` for proper error handling
+11. Conversation/status label text and colors live in `ui/labels.py`, not `constants.py`
+12. Local slash commands are completed from `local_commands.py`; if you add one, update the command registry there
+13. Slash command completion is readline-like `Tab` completion, not a dropdown selector UI
 
 **Quick Tests:**
 ```bash
