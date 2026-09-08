@@ -1997,17 +1997,19 @@ class OiApp(App):
             self._turn_worker.cancel()
 
     def action_interrupt_or_quit(self) -> None:
-        """Ctrl+C: interrupt a stream, else copy a selection, else exit.
+        """Ctrl+C: copy a selection, else interrupt a stream, else exit.
 
         Each press has exactly one meaning, and only a bare press (nothing
-        streaming, nothing selected) arms the exit — so copying twice in a row
-        can never quit the app.
+        selected, nothing streaming) arms the exit — so copying twice in a row
+        can never quit the app. Copy comes first so selecting text from the
+        reply as it streams doesn't cut the reply short; Esc still interrupts
+        regardless of the selection.
         """
-        if self._turn_worker is not None and self._turn_worker.is_running:
-            self._turn_worker.cancel()
+        if self._copy_selection():
             return
 
-        if self._copy_selection():
+        if self._turn_worker is not None and self._turn_worker.is_running:
+            self._turn_worker.cancel()
             return
 
         now = monotonic()

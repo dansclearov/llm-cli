@@ -11,6 +11,8 @@ config/`models.yaml` format, alias names).
 
 ### Fixed
 
+- TUI: `Ctrl+C` with text selected copies it even while a reply is streaming,
+  instead of interrupting the reply. `Esc` still interrupts.
 - TUI math: a `\[…\]` display block streamed in with a chunk ending on the
   closing `\]` no longer repeats the paragraph before it.
 - TUI math: brace-less command arguments the way models write them

@@ -371,7 +371,7 @@ def test_consume_content_splices_images():
 
 
 class TestCtrlC:
-    """Ctrl+C forks: interrupt a stream, else copy a selection, else exit."""
+    """Ctrl+C forks: copy a selection, else interrupt a stream, else exit."""
 
     def _hint(self, app) -> str:
         from textual.widgets import Static
@@ -473,7 +473,9 @@ class TestCtrlC:
 
         asyncio.run(scenario())
 
-    def test_interrupt_takes_priority_over_copy(self, tmp_path):
+    def test_copy_takes_priority_over_interrupt(self, tmp_path):
+        """Selecting text from a streaming reply must not cut it short."""
+
         async def scenario():
             app, chat, ctx = _make_app(tmp_path)
             started = asyncio.Event()
@@ -501,10 +503,18 @@ class TestCtrlC:
                 await asyncio.wait_for(started.wait(), timeout=5)
 
                 await pilot.press("ctrl+c")
+                await pilot.pause()
+
+                assert copied == ["selected text"]
+                assert app._turn_worker.is_running, "copy must not interrupt"
+
+                # With the selection cleared, the next press interrupts.
+                app.screen.get_selected_text = lambda: None
+                await pilot.press("ctrl+c")
                 await app.workers.wait_for_complete()
                 await pilot.pause()
 
-                assert copied == [], "streaming Ctrl+C must interrupt, not copy"
+                assert copied == ["selected text"]
                 assert app.is_running
 
         asyncio.run(scenario())

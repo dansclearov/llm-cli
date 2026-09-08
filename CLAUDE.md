@@ -359,10 +359,12 @@ Format: `prompt_[name].txt`, loaded via `prompts.py:read_system_message_from_fil
   trail the typed line by a frame.
 - **Interrupt = worker cancellation**: Ctrl+C (priority binding, so it
   pre-empts Textual's own `ctrl+c` → `screen.copy_text`) forks in
-  `action_interrupt_or_quit`: cancel the turn worker while streaming, else
-  copy `screen.get_selected_text()` via `copy_to_clipboard` (OSC 52) and
-  clear the selection, else arm exit for `CTRL_C_EXIT_WINDOW` and quit on a
-  second press. Only a bare press arms, so repeated copies can't quit.
+  `action_interrupt_or_quit`: copy `screen.get_selected_text()` via
+  `copy_to_clipboard` (OSC 52) and clear the selection when there is one,
+  else cancel the turn worker while streaming, else arm exit for
+  `CTRL_C_EXIT_WINDOW` and quit on a second press. Copy outranks interrupt
+  so selecting from a streaming reply doesn't cut it short (Esc still does);
+  only a bare press arms, so repeated copies can't quit.
   `chat_async` maps `CancelledError` to mark-interrupted + finalize before
   re-raising; `_run_turn`'s cancel handler then reads
   `take_interrupt()` and either keeps the exchange or unsends (see
