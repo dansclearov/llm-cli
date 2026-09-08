@@ -74,31 +74,46 @@ def make_parser() -> MarkdownIt:
     for rule in md.block.ruler.__rules__:
         if rule.name.startswith("math_block"):
             rule.alt = list(_PARAGRAPH_INTERRUPTERS)
-            rule.fn = _probe_safe(rule.fn)
+            rule.fn = _wrap_block_rule(rule.fn)
     md.block.ruler.__cache__ = None
     return md
 
 
-def _probe_safe(rule: Callable) -> Callable:
-    """A terminator probe (`silent=True`) must only answer "would this line
+def _wrap_block_rule(rule: Callable) -> Callable:
+    """Two fixes to the plugins' block rules.
+
+    A terminator probe (`silent=True`) must only answer "would this line
     start a block?"; dollarmath's rule emits tokens regardless, so run the
-    probe against scratch state."""
+    probe against scratch state.
 
-    def probe_safe(state: StateBlock, start: int, end: int, silent: bool) -> bool:
-        if not silent:
-            return rule(state, start, end, False) or _open_dollar_block(
-                state, start, end
-            )
-        tokens, line = state.tokens, state.line
-        state.tokens = []
-        try:
-            return rule(state, start, end, False) or _open_dollar_block(
-                state, start, end
-            )
-        finally:
-            state.tokens, state.line = tokens, line
+    texmath pushes its `\\[…\\]` token without a `map`. Textual's streaming
+    `append` resumes parsing from the last top-level token that has one, so
+    a closed bracket block at the end of the stream would make the next
+    append re-parse from the paragraph before it and mount that paragraph a
+    second time.
+    """
 
-    return probe_safe
+    def block_rule(state: StateBlock, start: int, end: int, silent: bool) -> bool:
+        if silent:
+            tokens, line = state.tokens, state.line
+            state.tokens = []
+            try:
+                return rule(state, start, end, False) or _open_dollar_block(
+                    state, start, end
+                )
+            finally:
+                state.tokens, state.line = tokens, line
+        count = len(state.tokens)
+        if not (
+            rule(state, start, end, False) or _open_dollar_block(state, start, end)
+        ):
+            return False
+        for token in state.tokens[count:]:
+            if token.map is None:
+                token.map = [start, state.line]
+        return True
+
+    return block_rule
 
 
 def _open_dollar_block(state: StateBlock, start: int, end: int) -> bool:

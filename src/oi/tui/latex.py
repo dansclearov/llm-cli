@@ -644,6 +644,44 @@ def _split_top(tex: str, sep: str) -> list[str]:
 
 _DOUBLED_COMMAND_RE = re.compile(r"\\\\(?=[a-zA-Z])")
 
+# Commands whose arguments mathtext only reads in braces; TeX also takes a
+# single token (`\\mathbb R^3`, `\\frac12`, `\\sqrt x`), which models write.
+_ARGUMENT_COUNTS = {
+    "frac": 2,
+    "sqrt": 1,
+    "overline": 1,
+    "underline": 1,
+    "operatorname": 1,
+    "mathbb": 1,
+    "mathbf": 1,
+    "mathcal": 1,
+    "mathfrak": 1,
+    "mathit": 1,
+    "mathrm": 1,
+    "mathsf": 1,
+    "mathtt": 1,
+}
+_UNBRACED_RE = re.compile(rf"\\({'|'.join(_ARGUMENT_COUNTS)}){_END}")
+_ARGUMENT_TOKEN_RE = re.compile(r"\s*(\\[a-zA-Z]+|[^\s{}\\\[\]])")
+
+
+def _brace_arguments(tex: str) -> str:
+    out: list[str] = []
+    pos = 0
+    for match in _UNBRACED_RE.finditer(tex):
+        if match.start() < pos:
+            continue
+        out.append(tex[pos : match.end()])
+        pos = match.end()
+        for _ in range(_ARGUMENT_COUNTS[match.group(1)]):
+            token = _ARGUMENT_TOKEN_RE.match(tex, pos)
+            if token is None:
+                break
+            out.append("{" + token.group(1) + "}")
+            pos = token.end()
+    out.append(tex[pos:])
+    return "".join(out)
+
 
 def preprocess(tex: str) -> str:
     # `R(\\theta)`: a doubled backslash before a letter is a model's escaping
@@ -651,7 +689,7 @@ def preprocess(tex: str) -> str:
     tex = _DOUBLED_COMMAND_RE.sub(r"\\", tex)
     for pattern, repl in _ALIASES:
         tex = pattern.sub(repl, tex)
-    return tex
+    return _brace_arguments(tex)
 
 
 def _backend():

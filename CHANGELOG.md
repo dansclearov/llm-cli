@@ -9,6 +9,14 @@ config/`models.yaml` format, alias names).
 
 ## [Unreleased]
 
+### Fixed
+
+- TUI math: a `\[…\]` display block streamed in with a chunk ending on the
+  closing `\]` no longer repeats the paragraph before it.
+- TUI math: brace-less command arguments the way models write them
+  (`\mathbb R^3`, `\frac12`, `\sqrt x`) now render instead of showing the
+  source.
+
 ## [0.4.0] - 2026-09-05
 
 ### Added

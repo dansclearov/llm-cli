@@ -61,6 +61,14 @@ def disabled():
         (r"\textbf{x} \operatorname*{arg}", r"\mathbf{x} \operatorname{arg}"),
         (r"x \label{eq:1} \nonumber", "x  "),
         (r"\textcolor{red}{x}", "{x}"),
+        # mathtext reads command arguments only in braces; TeX takes a token.
+        (r"\mathbb R^3 \to \mathbb{R}^n", r"\mathbb{R}^3 \to \mathbb{R}^n"),
+        (
+            r"\frac12 + \frac 1 2 + \frac\pi2",
+            r"\frac{1}{2} + \frac{1}{2} + \frac{\pi}{2}",
+        ),
+        (r"\sqrt x \sqrt[3]{x} \mathbf\alpha", r"\sqrt{x} \sqrt[3]{x} \mathbf{\alpha}"),
+        (r"\textbf x \operatorname E[X]", r"\mathbf{x} \operatorname{E}[X]"),
     ],
 )
 def test_preprocess_aliases(source, expected):
@@ -343,6 +351,43 @@ def test_unterminated_dollar_block_is_open():
     ]
     assert tokens[-1].meta == {"open": True}
     assert tokens[-1].content.strip() == "\\begin{pmatrix} a \\\\ b"
+
+
+def test_bracket_block_token_has_a_map():
+    from oi.tui.markdown import make_parser
+
+    tokens = make_parser().parse("Text\n\\[\nx\n\\]\nAfter")
+    assert [(t.type, t.map) for t in tokens if t.type == "math_block"] == [
+        ("math_block", [1, 4])
+    ]
+
+
+def test_streamed_bracket_block_does_not_repeat_its_paragraph(sender):
+    """A chunk ending on `\\]` leaves the block last; Textual resumes the
+    parse at the last mapped token, which must be the block, not the text."""
+    from textual.widgets import Markdown
+
+    source = "Intro.\n\nThe equation is\n\\[\ny = x\n\\]\nHere \\(u\\) is velocity."
+    cut = source.index("\\]") + 2
+
+    async def scenario() -> None:
+        async with MarkdownApp("").run_test() as pilot:
+            md = pilot.app.query_one(OiMarkdown)
+            stream = Markdown.get_stream(md)
+            for chunk in (source[:cut], source[cut : cut + 1], source[cut + 1 :]):
+                await stream.write(chunk)
+                await pilot.pause()
+            await stream.stop()
+            await pilot.pause()
+            assert [type(block).__name__ for block in md.children] == [
+                "MarkdownParagraph",
+                "MarkdownParagraph",
+                "MarkdownMath",
+                "MarkdownParagraph",
+            ]
+            assert pilot.app.query_one(MarkdownMath).tex == "y = x"
+
+    asyncio.run(scenario())
 
 
 def test_streamed_display_block_after_text_line(sender):

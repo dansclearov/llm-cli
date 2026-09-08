@@ -531,16 +531,22 @@ Format: `prompt_[name].txt`, loaded via `prompts.py:read_system_message_from_fil
   wraps each block class with `MathInlineMixin` — with the original class as
   the **first** base: Textual inherits `DEFAULT_CSS` along the first base
   only (`_css_bases`), so mixin-first silently drops the block's margins.
-  Two parser fixes in `make_parser` for how models actually write: the
+  Three parser fixes in `make_parser` for how models actually write: the
   math block rules get `alt` (so `Text:\n$$…$$` with no blank line
   interrupts the paragraph like a fence does — dollarmath registers none,
-  leaving that `$$` line as tiny inline math), wrapped by `_probe_safe`
+  leaving that `$$` line as tiny inline math), wrapped by `_wrap_block_rule`
   because dollarmath ignores `silent` and emits tokens during the terminator
   probe; and an unterminated `$$` opens a block to the end of the input
   (`_open_dollar_block`, `meta["open"]`, shown as source), the way an
   unclosed fence does — Textual's streaming `append` freezes every block
   before the last, so a paragraph glued to a still-open `$$` would otherwise
-  never be re-parsed once the block closes.
+  never be re-parsed once the block closes; and texmath's `\[…\]` token
+  gets the `map` it lacks, because Textual's streaming `append` resumes the
+  parse at the last mapped top-level token — with the block unmapped, a
+  chunk ending on `\]` made the next append re-parse from the paragraph
+  before it and mount that paragraph twice. `preprocess` also braces
+  single-token command arguments (`\mathbb R^3` → `\mathbb{R}^3`,
+  `\frac12`): mathtext reads them only in braces.
   Models asked for "math in LaTeX" often answer with the source in
   ```` ```latex ```` fences; `MathMarkdownIt.parse` turns a *closed*
   `latex`/`tex`/`math` fence into a `math_block` when its content renders
